@@ -1,7 +1,42 @@
 [project]
 name = "llm-redteam-bench"
 version = "0.1.0"
-description = "Add your description here"
+description = "Systematic adversarial evaluation suite for open-source LLMs"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "openai>=1.0",
+    "mlflow>=2.0",
+    "transformers>=4.40",
+    "torch>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.0",
+    "black>=24.0",
+    "isort>=5.13",
+    "flake8>=7.0",
+    "pre-commit>=3.7",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_redteam_bench"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
