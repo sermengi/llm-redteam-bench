@@ -64,6 +64,10 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-mock>=3.0",
+    "black>=24.0",
+    "isort>=5.13",
+    "flake8>=7.0",
+    "pre-commit>=3.7",
 ]
 
 [tool.black]
@@ -72,6 +76,10 @@ line-length = 100
 [tool.isort]
 profile = "black"
 line_length = 100
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
 
 [build-system]
 requires = ["hatchling"]
@@ -94,11 +102,25 @@ uv run python -c "import yaml, pydantic, openai, mlflow; print('OK')"
 
 Expected output: `OK`
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Verify formatters are installed**
+
+```bash
+uv run black --version && uv run isort --version && uv run flake8 --version
+```
+
+Expected output: version strings for all three tools. These tools are installed but **not yet wired to pre-commit hooks** — that is deferred to Week 2. You can run them manually at any time:
+
+```bash
+uv run black src/ scripts/ tests/
+uv run isort src/ scripts/ tests/
+uv run flake8 src/ scripts/ tests/
+```
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add pyproject.toml uv.lock
-git commit -m "feat: add project dependencies to pyproject.toml"
+git commit -m "feat: add project dependencies including formatters to pyproject.toml"
 ```
 
 ---
@@ -1560,3 +1582,5 @@ git commit -m "feat: Week 1 complete — end-to-end pipeline logs structured Eva
 | No hardcoded strings — config/env driven | All tasks |
 | Type hints on all functions | All tasks |
 | Docstrings on all public functions/classes | All tasks |
+| `black`, `isort`, `flake8` installed as dev deps | Task 1 |
+| pre-commit hooks wired + GitHub Actions CI | **Deferred to Week 2** |

@@ -246,7 +246,8 @@ A full evaluation run is complete when:
 - Python 3.11+
 - Type hints on all function signatures
 - Docstrings on all public functions and classes
-- Black formatting, isort imports, flake8 linting — enforced via pre-commit
+- Black formatting, isort imports, flake8 linting — enforced via pre-commit  
+  **Note:** `black`, `isort`, `flake8`, and `pre-commit` are installed as dev deps in Week 1 but hooks are not wired until Week 2. Week 2 must add `.pre-commit-config.yaml` (black + isort + flake8 hooks), run `pre-commit install`, and create `.github/workflows/ci.yml` for lint + test on push.
 - No hardcoded strings for model names, prompt text, API keys, or file paths — all
   driven by config or environment variables
 - API keys loaded from environment variables only, never committed
