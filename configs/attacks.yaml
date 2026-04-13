@@ -1,0 +1,14 @@
+seed: 42
+categories:
+  - LLM01
+  - LLM02
+  - LLM04
+  - LLM06
+  - LLM07
+  - LLM09
+
+prompts_per_category:
+  manual: 5
+  pyrit: 15
+  deepteam: 10
+  total: 30

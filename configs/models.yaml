@@ -1,0 +1,10 @@
+models:
+  - name: meta-llama/Llama-3.1-8B-Instruct
+    backend: huggingface
+    mock: true
+  - name: mistralai/Mistral-7B-Instruct-v0.3
+    backend: huggingface
+    mock: true
+  - name: microsoft/Phi-3.5-mini-instruct
+    backend: huggingface
+    mock: true
