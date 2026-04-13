@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+wheels/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# uv
+.python-version
+
+# Environment variables — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Results — only summary is committed
+results/
+!results/.gitkeep
+!results/summary.json
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# pre-commit
+.pre-commit-config.yaml.bak
+
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json
+
+# Docker
+*.env.docker
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary / scratch files
+*.tmp
+*.bak
+scratch/
