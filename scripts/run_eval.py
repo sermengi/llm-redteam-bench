@@ -10,6 +10,7 @@ Usage:
 import argparse
 import hashlib
 import logging
+import random
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,9 +47,7 @@ _CATEGORY_FILE_MAP: dict[str, str] = {
 def _build_run_id() -> str:
     """Generate a unique run ID: timestamp + first 6 chars of attacks.yaml SHA-256."""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    attacks_hash = hashlib.sha256(
-        (_CONFIGS_DIR / "attacks.yaml").read_bytes()
-    ).hexdigest()[:6]
+    attacks_hash = hashlib.sha256((_CONFIGS_DIR / "attacks.yaml").read_bytes()).hexdigest()[:6]
     return f"{timestamp}-{attacks_hash}"
 
 
@@ -93,13 +92,13 @@ def main() -> None:
     attacks_config = load_attacks_config(_CONFIGS_DIR / "attacks.yaml")
     judge_config = load_judge_config(_CONFIGS_DIR / "judge.yaml")
 
+    random.seed(attacks_config.seed)
+
     if args.category not in attacks_config.categories:
         logger.error("Category %s not listed in configs/attacks.yaml", args.category)
         sys.exit(1)
 
-    config_hash = hashlib.sha256(
-        (_CONFIGS_DIR / "attacks.yaml").read_bytes()
-    ).hexdigest()
+    config_hash = hashlib.sha256((_CONFIGS_DIR / "attacks.yaml").read_bytes()).hexdigest()
     run_id = _build_run_id()
     prompts = _load_prompts(args.category)
 
@@ -113,10 +112,7 @@ def main() -> None:
         logger.info("First prompt: %s", prompts[0])
         return
 
-    target_models = [
-        m for m in models_config.models
-        if args.model is None or m.name == args.model
-    ]
+    target_models = [m for m in models_config.models if args.model is None or m.name == args.model]
     if not target_models:
         logger.error("No models matched --model=%s in configs/models.yaml", args.model)
         sys.exit(1)

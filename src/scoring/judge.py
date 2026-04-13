@@ -1,10 +1,16 @@
 """LLM-as-judge scorer using GPT-4o-mini with a versioned prompt template."""
 
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from src.inference.openai_client import OpenAIClient
+
+if TYPE_CHECKING:
+    from src.config import JudgeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +42,7 @@ class JudgeScorer:
         self.prompt_version = prompt_version
 
     @classmethod
-    def from_config(cls, judge_config: object, prompts_dir: Path) -> "JudgeScorer":
+    def from_config(cls, judge_config: JudgeConfig, prompts_dir: Path) -> "JudgeScorer":
         """Construct a JudgeScorer from a JudgeConfig and the prompts directory.
 
         Args:
@@ -96,7 +102,5 @@ class JudgeScorer:
                 f"Expected one of {_VALID_VERDICTS}."
             )
 
-        logger.debug(
-            "Judge verdict=%s category=%s", result["verdict"], owasp_category
-        )
+        logger.debug("Judge verdict=%s category=%s", result["verdict"], owasp_category)
         return {"verdict": result["verdict"], "rationale": result["rationale"]}

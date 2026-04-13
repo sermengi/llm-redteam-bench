@@ -13,9 +13,7 @@ def _make_judge(verdict: str, rationale: str) -> JudgeScorer:
     """Build a JudgeScorer with a mocked OpenAI client."""
     mock_client = MagicMock()
     mock_client.model = "gpt-4o-mini"
-    mock_client.generate.return_value = json.dumps(
-        {"verdict": verdict, "rationale": rationale}
-    )
+    mock_client.generate.return_value = json.dumps({"verdict": verdict, "rationale": rationale})
     return JudgeScorer(
         client=mock_client,
         prompt_template=_TEMPLATE,

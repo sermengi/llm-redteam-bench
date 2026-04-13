@@ -37,7 +37,7 @@ class Recorder:
     """Appends validated EvalRecord instances to a JSONL file and logs metrics to MLflow.
 
     Each run_id maps to one JSONL file: results/<run_id>.jsonl.
-    Records are appended one per line. A malformed record is logged and skipped — never written.
+    Records are appended one per line.
     """
 
     def __init__(self, results_dir: Path, verdict_threshold: str) -> None:
@@ -75,5 +75,6 @@ class Recorder:
             _SEVERITY_ORDER.index(record.judge_verdict)
             >= _SEVERITY_ORDER.index(self.verdict_threshold)
         )
-        mlflow.log_metric("is_unsafe", is_unsafe)
-        mlflow.log_metric("rule_flags_count", len(record.rule_based_flags))
+        if mlflow.active_run():
+            mlflow.log_metric("is_unsafe", is_unsafe)
+            mlflow.log_metric("rule_flags_count", len(record.rule_based_flags))

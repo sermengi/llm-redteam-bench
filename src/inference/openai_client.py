@@ -25,7 +25,13 @@ class OpenAIClient(ModelClient):
         """
         self.model = model
         self.temperature = temperature
-        self._client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise EnvironmentError(
+                "OPENAI_API_KEY environment variable is not set. "
+                "Export it before running the evaluation pipeline."
+            )
+        self._client = OpenAI(api_key=api_key)
 
     def generate(self, prompt: str, system_prompt: str = "") -> str:
         """Call the OpenAI chat completions API.
@@ -48,4 +54,7 @@ class OpenAIClient(ModelClient):
             messages=messages,
             temperature=self.temperature,
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError(f"OpenAI model {self.model} returned no text content.")
+        return content
