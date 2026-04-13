@@ -35,7 +35,7 @@ max-line-length = 100
 extend-ignore = ["E203", "W503"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/llm_redteam_bench"]
+packages = ["src"]
 
 [build-system]
 requires = ["hatchling"]
