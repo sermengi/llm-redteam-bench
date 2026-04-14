@@ -1,10 +1,17 @@
 """PyRIT-based attack prompt generator (shallow: converter-only, no target/memory)."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Literal
 
-from pyrit.prompt_converter import Base64Converter, LeetspeakConverter, ROT13Converter
+from pyrit.prompt_converter import (
+    Base64Converter,
+    LeetspeakConverter,
+    PromptConverter,
+    ROT13Converter,
+)
 
 from src.attacks.loader import AttackPrompt
 
@@ -13,11 +20,16 @@ logger = logging.getLogger(__name__)
 # Week 4 extension point: add CrescendoOrchestrator-based generator here
 # for multi_turn_crescendo strategy. See design doc section "Week 4 Extension Point".
 
+# Shared instances are safe because these converters are stateless.
+# If adding stateful converters later, instantiate per-call instead.
 _CONVERTERS = [Base64Converter(), ROT13Converter(), LeetspeakConverter()]
 
 
-def _convert_sync(text: str, converter) -> str:
+def _convert_sync(text: str, converter: "PromptConverter") -> str:
     """Apply a PyRIT converter to a text string synchronously.
+
+    Creates a dedicated event loop per call to avoid RuntimeError when called
+    from within an already-running loop (e.g. Jupyter, pytest-asyncio).
 
     Args:
         text: The seed prompt string to convert.
@@ -26,7 +38,13 @@ def _convert_sync(text: str, converter) -> str:
     Returns:
         The converted prompt string.
     """
-    result = asyncio.run(converter.convert_async(prompt=text, input_type="text"))
+    loop = asyncio.new_event_loop()
+    try:
+        result = loop.run_until_complete(
+            converter.convert_async(prompt=text, input_type="text")
+        )
+    finally:
+        loop.close()
     return result.output_text
 
 
@@ -60,7 +78,13 @@ def generate_pyrit_prompts(
                 )
 
     variants = variants[:n]
-    n_direct = (n + 1) // 2  # ceiling division — direct gets the extra if n is odd
+    if len(variants) < n:
+        raise RuntimeError(
+            f"generate_pyrit_prompts: needed {n} variants but only produced "
+            f"{len(variants)}. Check converter failure warnings in the logs."
+        )
+    actual_n = len(variants)
+    n_direct = (actual_n + 1) // 2  # ceiling division — direct gets the extra if n is odd
 
     result: list[AttackPrompt] = []
     for i, prompt in enumerate(variants):
