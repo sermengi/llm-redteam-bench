@@ -11,8 +11,8 @@ dependencies = [
     "mlflow>=2.0",
     "transformers>=4.44",
     "torch>=2.0",
-    "pyrit>=0.5",
-    "deepteam>=0.1",
+    "pyrit>=0.9",
+    "deepteam>=1.0",
 ]
 
 [dependency-groups]
