@@ -3,7 +3,7 @@
 
 Usage:
     python scripts/run_eval.py --category LLM01
-    python scripts/run_eval.py --category LLM01 --model meta-llama/Llama-3.1-8B-Instruct
+    python scripts/run_eval.py --category LLM06 --model meta-llama/Llama-3.1-8B-Instruct
     python scripts/run_eval.py --category LLM01 --dry-run
 """
 
@@ -18,6 +18,7 @@ from pathlib import Path
 import mlflow
 
 from src import pipeline
+from src.attacks.loader import load_attacks
 from src.config import load_attacks_config, load_judge_config, load_models_config
 from src.logging.recorder import Recorder
 from src.scoring.judge import JudgeScorer
@@ -32,16 +33,8 @@ logger = logging.getLogger(__name__)
 _CONFIGS_DIR = Path("configs")
 _PROMPTS_DIR = Path("prompts")
 _RESULTS_DIR = Path("results")
-_MANUAL_PROMPTS_DIR = Path("src/attacks/manual")
 
-_CATEGORY_FILE_MAP: dict[str, str] = {
-    "LLM01": "llm01.txt",
-    "LLM02": "llm02.txt",
-    "LLM04": "llm04.txt",
-    "LLM06": "llm06.txt",
-    "LLM07": "llm07.txt",
-    "LLM09": "llm09.txt",
-}
+_VALID_CATEGORIES = ["LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"]
 
 
 def _build_run_id() -> str:
@@ -51,29 +44,15 @@ def _build_run_id() -> str:
     return f"{timestamp}-{attacks_hash}"
 
 
-def _load_prompts(category: str) -> list[str]:
-    """Load all non-empty lines from the manual prompt file for the given category.
-
-    Args:
-        category: OWASP category string (e.g. 'LLM01').
-
-    Returns:
-        List of prompt strings.
-    """
-    filename = _CATEGORY_FILE_MAP[category]
-    path = _MANUAL_PROMPTS_DIR / filename
-    return [line.strip() for line in path.read_text().splitlines() if line.strip()]
-
-
 def main() -> None:
-    """Parse CLI arguments, load configs, and run the evaluation loop."""
+    """Parse CLI arguments, load configs, and run the evaluation batch."""
     parser = argparse.ArgumentParser(
         description="Run adversarial evaluation against target models."
     )
     parser.add_argument(
         "--category",
         required=True,
-        choices=list(_CATEGORY_FILE_MAP.keys()),
+        choices=_VALID_CATEGORIES,
         help="OWASP vulnerability category to evaluate.",
     )
     parser.add_argument(
@@ -84,7 +63,7 @@ def main() -> None:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate config and print the first prompt. No inference or logging.",
+        help="Load and print attack prompts. No inference or logging.",
     )
     args = parser.parse_args()
 
@@ -100,16 +79,23 @@ def main() -> None:
 
     config_hash = hashlib.sha256((_CONFIGS_DIR / "attacks.yaml").read_bytes()).hexdigest()
     run_id = _build_run_id()
-    prompts = _load_prompts(args.category)
+    attacks = load_attacks(args.category, attacks_config)
 
     if args.dry_run:
         logger.info(
-            "Dry run — run_id=%s category=%s prompts_loaded=%d",
+            "Dry run — run_id=%s category=%s attacks_loaded=%d",
             run_id,
             args.category,
-            len(prompts),
+            len(attacks),
         )
-        logger.info("First prompt: %s", prompts[0])
+        for i, attack in enumerate(attacks[:3]):
+            logger.info(
+                "Attack[%d] source=%s strategy=%s prompt=%s",
+                i,
+                attack.attack_source,
+                attack.attack_strategy,
+                attack.prompt[:80],
+            )
         return
 
     target_models = [m for m in models_config.models if args.model is None or m.name == args.model]
@@ -119,38 +105,30 @@ def main() -> None:
 
     judge = JudgeScorer.from_config(judge_config, _PROMPTS_DIR)
     classifier = RuleBasedClassifier()
-    recorder = Recorder(
-        results_dir=_RESULTS_DIR,
-        verdict_threshold=judge_config.verdict_threshold,
-    )
+    recorder = Recorder(results_dir=_RESULTS_DIR, verdict_threshold=judge_config.verdict_threshold)
 
     with mlflow.start_run(run_name=run_id):
         mlflow.log_param("run_id", run_id)
         mlflow.log_param("category", args.category)
         mlflow.log_param("judge_model", judge_config.model)
         mlflow.log_param("config_hash", config_hash)
+        mlflow.log_param("attack_count", len(attacks))
 
-        for model in target_models:
-            logger.info(
-                "Running %d prompts against %s (mock=%s)",
-                len(prompts),
-                model.name,
-                model.mock,
-            )
-            for prompt in prompts:
-                pipeline.run(
-                    prompt=prompt,
-                    model_name=model.name,
-                    mock=model.mock,
-                    owasp_category=args.category,
-                    run_id=run_id,
-                    config_hash=config_hash,
-                    judge=judge,
-                    classifier=classifier,
-                    recorder=recorder,
-                )
+        records = pipeline.run_batch(
+            attacks=attacks,
+            model_names=[m.name for m in target_models],
+            owasp_category=args.category,
+            run_id=run_id,
+            config_hash=config_hash,
+            mock=all(m.mock for m in target_models),
+            judge=judge,
+            classifier=classifier,
+            recorder=recorder,
+        )
 
-    logger.info("Run complete. Results in results/%s.jsonl", run_id)
+    logger.info(
+        "Run complete. %d records logged to results/%s.jsonl", len(records), run_id
+    )
 
 
 if __name__ == "__main__":
