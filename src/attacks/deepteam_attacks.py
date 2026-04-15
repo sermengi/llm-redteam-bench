@@ -77,8 +77,6 @@ def generate_deepteam_prompts(category: str, n: int) -> list[AttackPrompt]:
     selected = templates[:n]
     logger.info("Generated %d DeepTeam prompts for %s", len(selected), category)
     return [
-        AttackPrompt(
-            prompt=p, attack_source="deepteam", attack_strategy="direct_injection"
-        )
+        AttackPrompt(prompt=p, attack_source="deepteam", attack_strategy="direct_injection")
         for p in selected
     ]

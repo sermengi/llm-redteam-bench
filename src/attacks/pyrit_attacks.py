@@ -40,9 +40,7 @@ def _convert_sync(text: str, converter: "PromptConverter") -> str:
     """
     loop = asyncio.new_event_loop()
     try:
-        result = loop.run_until_complete(
-            converter.convert_async(prompt=text, input_type="text")
-        )
+        result = loop.run_until_complete(converter.convert_async(prompt=text, input_type="text"))
     finally:
         loop.close()
     return result.output_text
@@ -73,9 +71,7 @@ def generate_pyrit_prompts(
             try:
                 variants.append(_convert_sync(seed, converter))
             except Exception:
-                logger.warning(
-                    "Converter %s failed on seed, skipping.", type(converter).__name__
-                )
+                logger.warning("Converter %s failed on seed, skipping.", type(converter).__name__)
 
     variants = variants[:n]
     if len(variants) < n:
@@ -91,9 +87,7 @@ def generate_pyrit_prompts(
         strategy: Literal["direct_injection", "indirect_injection"] = (
             "direct_injection" if i < n_direct else "indirect_injection"
         )
-        result.append(
-            AttackPrompt(prompt=prompt, attack_source="pyrit", attack_strategy=strategy)
-        )
+        result.append(AttackPrompt(prompt=prompt, attack_source="pyrit", attack_strategy=strategy))
 
     logger.info("Generated %d PyRIT prompts for %s", len(result), category)
     return result

@@ -128,9 +128,7 @@ def main() -> None:
             )
             records.extend(batch)
 
-    logger.info(
-        "Run complete. %d records logged to results/%s.jsonl", len(records), run_id
-    )
+    logger.info("Run complete. %d records logged to results/%s.jsonl", len(records), run_id)
 
 
 if __name__ == "__main__":

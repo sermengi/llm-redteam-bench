@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock
 
-from src.attacks.loader import AttackPrompt
 from src import pipeline
+from src.attacks.loader import AttackPrompt
 from src.logging.recorder import EvalRecord
 
 

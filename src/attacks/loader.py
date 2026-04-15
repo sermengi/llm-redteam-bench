@@ -62,8 +62,8 @@ def load_attacks(category: str, config: AttacksConfig) -> list[AttackPrompt]:
         Flat list of AttackPrompt, length == config.prompts_per_category.total.
     """
     # Deferred to avoid ImportError while pyrit_attacks/deepteam_attacks are not yet created.
-    from src.attacks.pyrit_attacks import generate_pyrit_prompts
     from src.attacks.deepteam_attacks import generate_deepteam_prompts
+    from src.attacks.pyrit_attacks import generate_pyrit_prompts
 
     counts = config.prompts_per_category
     manual = _load_manual(category, counts.manual)

@@ -1,5 +1,6 @@
-import pytest
 from pathlib import Path
+
+import pytest
 from pydantic import ValidationError
 
 CONFIGS_DIR = Path("configs")
