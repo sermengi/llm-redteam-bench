@@ -37,11 +37,10 @@ _RESULTS_DIR = Path("results")
 _VALID_CATEGORIES = ["LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"]
 
 
-def _build_run_id() -> str:
+def _build_run_id(config_hash: str) -> str:
     """Generate a unique run ID: timestamp + first 6 chars of attacks.yaml SHA-256."""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    attacks_hash = hashlib.sha256((_CONFIGS_DIR / "attacks.yaml").read_bytes()).hexdigest()[:6]
-    return f"{timestamp}-{attacks_hash}"
+    return f"{timestamp}-{config_hash[:6]}"
 
 
 def main() -> None:
@@ -78,7 +77,7 @@ def main() -> None:
         sys.exit(1)
 
     config_hash = hashlib.sha256((_CONFIGS_DIR / "attacks.yaml").read_bytes()).hexdigest()
-    run_id = _build_run_id()
+    run_id = _build_run_id(config_hash)
     attacks = load_attacks(args.category, attacks_config)
 
     if args.dry_run:
@@ -114,17 +113,20 @@ def main() -> None:
         mlflow.log_param("config_hash", config_hash)
         mlflow.log_param("attack_count", len(attacks))
 
-        records = pipeline.run_batch(
-            attacks=attacks,
-            model_names=[m.name for m in target_models],
-            owasp_category=args.category,
-            run_id=run_id,
-            config_hash=config_hash,
-            mock=all(m.mock for m in target_models),
-            judge=judge,
-            classifier=classifier,
-            recorder=recorder,
-        )
+        records: list = []
+        for model in target_models:
+            batch = pipeline.run_batch(
+                attacks=attacks,
+                model_names=[model.name],
+                owasp_category=args.category,
+                run_id=run_id,
+                config_hash=config_hash,
+                mock=model.mock,
+                judge=judge,
+                classifier=classifier,
+                recorder=recorder,
+            )
+            records.extend(batch)
 
     logger.info(
         "Run complete. %d records logged to results/%s.jsonl", len(records), run_id
