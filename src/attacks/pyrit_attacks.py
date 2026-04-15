@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Literal
+from concurrent.futures import Future
+from threading import Thread
+from typing import Any, Coroutine, Literal
 
 from pyrit.prompt_converter import (
     Base64Converter,
@@ -25,11 +27,34 @@ logger = logging.getLogger(__name__)
 _CONVERTERS = [Base64Converter(), ROT13Converter(), LeetspeakConverter()]
 
 
+def _run_coro_sync(coro: Coroutine[Any, Any, Any]) -> Any:
+    """Run a coroutine in sync code, including when an event loop is already running."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    # Jupyter/pytest-asyncio case: run in a dedicated thread with its own loop.
+    result_future: Future[object] = Future()
+
+    def _runner() -> None:
+        try:
+            result_future.set_result(asyncio.run(coro))
+        except Exception as exc:  # pragma: no cover - exception path is re-raised below
+            result_future.set_exception(exc)
+
+    thread = Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+    return result_future.result()
+
+
 def _convert_sync(text: str, converter: "PromptConverter") -> str:
     """Apply a PyRIT converter to a text string synchronously.
 
-    Creates a dedicated event loop per call to avoid RuntimeError when called
-    from within an already-running loop (e.g. Jupyter, pytest-asyncio).
+    Handles both plain sync contexts and running event-loop contexts (e.g.
+    Jupyter notebooks) by running converter coroutines in a dedicated thread
+    when needed.
 
     Args:
         text: The seed prompt string to convert.
@@ -38,11 +63,7 @@ def _convert_sync(text: str, converter: "PromptConverter") -> str:
     Returns:
         The converted prompt string.
     """
-    loop = asyncio.new_event_loop()
-    try:
-        result = loop.run_until_complete(converter.convert_async(prompt=text, input_type="text"))
-    finally:
-        loop.close()
+    result = _run_coro_sync(converter.convert_async(prompt=text, input_type="text"))
     return result.output_text
 
 
@@ -71,7 +92,11 @@ def generate_pyrit_prompts(
             try:
                 variants.append(_convert_sync(seed, converter))
             except Exception:
-                logger.warning("Converter %s failed on seed, skipping.", type(converter).__name__)
+                logger.warning(
+                    "Converter %s failed on seed, skipping.",
+                    type(converter).__name__,
+                    exc_info=True,
+                )
 
     variants = variants[:n]
     if len(variants) < n:
