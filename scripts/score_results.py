@@ -80,22 +80,17 @@ def _score_with_retry(
                 owasp_category=record.owasp_category,
             )
         except Exception as exc:
-            if "rate_limit" in str(exc).lower():
-                if attempt < max_retries - 1:
-                    wait = 2**attempt
-                    logger.warning(
-                        "Rate limit hit (attempt %d/%d), retrying in %ds ...",
-                        attempt + 1,
-                        max_retries,
-                        wait,
-                    )
-                    time.sleep(wait)
-                else:
-                    raise RuntimeError(
-                        f"Exhausted retries ({max_retries}) due to rate limiting."
-                    ) from exc
-            else:
+            if "rate_limit" not in str(exc).lower():
                 raise
+            if attempt < max_retries - 1:
+                wait = 2**attempt
+                logger.warning(
+                    "Rate limit hit (attempt %d/%d), retrying in %ds ...",
+                    attempt + 1,
+                    max_retries,
+                    wait,
+                )
+                time.sleep(wait)
     raise RuntimeError(f"Exhausted retries ({max_retries}) due to rate limiting.")
 
 
@@ -186,18 +181,17 @@ def main() -> None:
                     f.write(line + "\n")
                 failed += 1
 
-        unsafe_count = (
-            sum(
+        if output_path.exists() and scored > 0:
+            all_lines = [
+                ln for ln in output_path.read_text(encoding="utf-8").splitlines() if ln.strip()
+            ]
+            total_scored = len(all_lines)
+            unsafe_count = sum(
                 1
-                for line in output_path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-                and json.loads(line).get("judge_verdict") in ("unsafe", "borderline")
+                for ln in all_lines
+                if json.loads(ln).get("judge_verdict") in ("unsafe", "borderline")
             )
-            if output_path.exists()
-            else 0
-        )
-        if scored > 0:
-            mlflow.log_metric("attack_success_rate", unsafe_count / (scored + skipped))
+            mlflow.log_metric("attack_success_rate", unsafe_count / total_scored)
 
     summary = f"scored: {scored}, skipped: {skipped}, failed: {failed}"
     logger.info(summary)
