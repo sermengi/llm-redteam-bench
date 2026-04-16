@@ -13,6 +13,7 @@ dependencies = [
     "torch>=2.0",
     "pyrit>=0.9",
     "deepteam>=1.0",
+    "modal>=0.70",
 ]
 
 [dependency-groups]
