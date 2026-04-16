@@ -51,10 +51,18 @@ class Recorder:
         Args:
             results_dir: Directory where JSONL result files are written.
             verdict_threshold: Minimum verdict severity counted as attack success.
+
+        Raises:
+            ValueError: If verdict_threshold is not one of the valid severity values.
         """
+        if verdict_threshold not in _SEVERITY_ORDER:
+            raise ValueError(
+                f"verdict_threshold must be one of {_SEVERITY_ORDER!r}, got {verdict_threshold!r}"
+            )
         self.results_dir = results_dir
         self.verdict_threshold = verdict_threshold
         results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "raw").mkdir(parents=True, exist_ok=True)
 
     def log_raw(self, record: RawRecord) -> None:
         """Write a raw inference record to results/raw/<run_id>.jsonl.
@@ -63,9 +71,8 @@ class Recorder:
             record: A RawRecord instance (no judge fields).
         """
         raw_dir = self.results_dir / "raw"
-        raw_dir.mkdir(parents=True, exist_ok=True)
         out_path = raw_dir / f"{record.run_id}.jsonl"
-        with open(out_path, "a") as f:
+        with open(out_path, "a", encoding="utf-8") as f:
             f.write(record.model_dump_json() + "\n")
         logger.info(
             "Logged raw record run_id=%s model=%s category=%s",
@@ -81,7 +88,7 @@ class Recorder:
             record: A fully populated EvalRecord instance.
         """
         out_path = self.results_dir / f"{record.run_id}.jsonl"
-        with open(out_path, "a") as f:
+        with open(out_path, "a", encoding="utf-8") as f:
             f.write(record.model_dump_json() + "\n")
 
         logger.info(
