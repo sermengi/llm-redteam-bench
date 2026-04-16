@@ -113,13 +113,12 @@ def main() -> None:
         mlflow.log_param("config_hash", config_hash)
         mlflow.log_param("attack_count", len(attacks))
 
-        records = pipeline.run_batch(
+        records = pipeline.run_mock_batch(
             attacks=attacks,
             model_names=[m.name for m in target_models],
             owasp_category=args.category,
             run_id=run_id,
             config_hash=config_hash,
-            mock=all(m.mock for m in target_models),
             judge=judge,
             classifier=classifier,
             recorder=recorder,
