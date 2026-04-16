@@ -70,3 +70,6 @@ logs/
 *.tmp
 *.bak
 scratch/
+
+# Git worktrees
+.worktrees/
