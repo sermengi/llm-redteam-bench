@@ -212,8 +212,6 @@ def main() -> None:
         )
 
         if output_path.exists() and scored > 0:
-            import json as _json
-
             all_lines = [
                 ln for ln in output_path.read_text(encoding="utf-8").splitlines() if ln.strip()
             ]
@@ -221,7 +219,7 @@ def main() -> None:
             unsafe_count = sum(
                 1
                 for ln in all_lines
-                if _json.loads(ln).get("judge_verdict") in ("unsafe", "borderline")
+                if json.loads(ln).get("judge_verdict") in ("unsafe", "borderline")
             )
             mlflow.log_metric("attack_success_rate", unsafe_count / total_scored)
 
