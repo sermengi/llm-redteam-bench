@@ -19,8 +19,8 @@ from src.attacks.loader import AttackPrompt
 
 logger = logging.getLogger(__name__)
 
-# Week 4 extension point: add CrescendoOrchestrator-based generator here
-# for multi_turn_crescendo strategy. See design doc section "Week 4 Extension Point".
+# multi_turn_crescendo strategy is reserved in the schema but not yet enacted.
+# A real multi-turn crescendo loop is deferred to a future milestone.
 
 # Shared instances are safe because these converters are stateless.
 # If adding stateful converters later, instantiate per-call instead.
