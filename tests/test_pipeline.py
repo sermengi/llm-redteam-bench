@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from src import pipeline
 from src.attacks.loader import AttackPrompt
+from src.config import SystemPromptsConfig
 from src.logging.recorder import EvalRecord, RawRecord
 
 
@@ -31,6 +32,16 @@ def _make_judge_and_classifier():
     return judge, classifier
 
 
+def _make_system_prompts(llm07_prompt: str | None = None) -> SystemPromptsConfig:
+    categories: dict[str, str] = {}
+    if llm07_prompt is not None:
+        categories["LLM07"] = llm07_prompt
+    return SystemPromptsConfig(
+        default="You are a helpful assistant.",
+        categories=categories,
+    )
+
+
 def test_run_returns_eval_record():
     judge, classifier = _make_judge_and_classifier()
     recorder = MagicMock()
@@ -44,6 +55,7 @@ def test_run_returns_eval_record():
         judge=judge,
         classifier=classifier,
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
     assert isinstance(record, EvalRecord)
     assert record.attack_source == "manual"
@@ -64,10 +76,69 @@ def test_run_indirect_injection_uses_system_prompt():
         judge=judge,
         classifier=classifier,
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
     assert "Ignore all previous instructions." in record.system_prompt
-    assert record.system_prompt != pipeline._DEFAULT_SYSTEM_PROMPT
     assert record.attack_strategy == "indirect_injection"
+
+
+def test_run_llm07_uses_tool_system_prompt():
+    judge, classifier = _make_judge_and_classifier()
+    recorder = MagicMock()
+    sp = _make_system_prompts(llm07_prompt="You have tools: search_web, send_email.")
+    record = pipeline.run(
+        attack=_make_attack(strategy="direct_injection"),
+        client=_make_mock_client(),
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
+        owasp_category="LLM07",
+        run_id="test-run-sp-01",
+        config_hash="abc123",
+        judge=judge,
+        classifier=classifier,
+        recorder=recorder,
+        system_prompts=sp,
+    )
+    assert record.system_prompt == "You have tools: search_web, send_email."
+
+
+def test_run_llm01_uses_default_system_prompt():
+    judge, classifier = _make_judge_and_classifier()
+    recorder = MagicMock()
+    sp = _make_system_prompts(llm07_prompt="You have tools: search_web, send_email.")
+    record = pipeline.run(
+        attack=_make_attack(strategy="direct_injection"),
+        client=_make_mock_client(),
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
+        owasp_category="LLM01",
+        run_id="test-run-sp-02",
+        config_hash="abc123",
+        judge=judge,
+        classifier=classifier,
+        recorder=recorder,
+        system_prompts=sp,
+    )
+    assert record.system_prompt == "You are a helpful assistant."
+
+
+def test_run_indirect_injection_overrides_category_prompt():
+    judge, classifier = _make_judge_and_classifier()
+    recorder = MagicMock()
+    sp = _make_system_prompts(llm07_prompt="You have tools: search_web, send_email.")
+    record = pipeline.run(
+        attack=_make_attack(strategy="indirect_injection"),
+        client=_make_mock_client(),
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
+        owasp_category="LLM07",
+        run_id="test-run-sp-03",
+        config_hash="abc123",
+        judge=judge,
+        classifier=classifier,
+        recorder=recorder,
+        system_prompts=sp,
+    )
+    # indirect_injection injects the attack payload into the system prompt regardless of category
+    assert "Ignore all previous instructions." in record.system_prompt
+    assert "search_web" not in record.system_prompt
 
 
 def test_run_mock_batch_returns_all_records():
@@ -85,6 +156,7 @@ def test_run_mock_batch_returns_all_records():
         judge=judge,
         classifier=classifier,
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
     assert len(records) == 4
 
@@ -108,6 +180,7 @@ def test_run_mock_batch_continues_on_error():
         judge=judge,
         classifier=classifier,
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
     assert len(records) == 3
 
@@ -125,6 +198,7 @@ def test_run_inference_batch_returns_raw_records():
         run_id="test-run-005",
         config_hash="abc123",
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
 
     assert len(records) == 2
@@ -151,6 +225,7 @@ def test_run_inference_batch_continues_on_error():
         run_id="test-run-006",
         config_hash="abc123",
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
 
     assert len(records) == 2
@@ -169,6 +244,7 @@ def test_run_inference_batch_calls_log_raw():
         run_id="test-run-007",
         config_hash="abc123",
         recorder=recorder,
+        system_prompts=_make_system_prompts(),
     )
 
     recorder.log_raw.assert_called_once()

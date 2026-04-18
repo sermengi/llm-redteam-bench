@@ -16,7 +16,7 @@ from pathlib import Path
 
 from src import pipeline
 from src.attacks.loader import load_attacks
-from src.config import load_attacks_config, load_models_config
+from src.config import load_attacks_config, load_models_config, load_system_prompts_config
 from src.inference.modal_client import ModalHFClient
 from src.logging.recorder import Recorder
 
@@ -56,6 +56,7 @@ def main() -> None:
 
     attacks_config = load_attacks_config(_CONFIGS_DIR / "attacks.yaml")
     models_config = load_models_config(_CONFIGS_DIR / "models.yaml")
+    system_prompts = load_system_prompts_config(_CONFIGS_DIR / "system_prompts.yaml")
 
     valid_model_names = [m.name for m in models_config.models]
     if args.model not in valid_model_names:
@@ -93,6 +94,7 @@ def main() -> None:
             run_id=run_id,
             config_hash=config_hash,
             recorder=recorder,
+            system_prompts=system_prompts,
         )
 
     raw_path = _RESULTS_DIR / "raw" / f"{run_id}.jsonl"

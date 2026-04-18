@@ -19,7 +19,12 @@ import mlflow
 
 from src import pipeline
 from src.attacks.loader import load_attacks
-from src.config import load_attacks_config, load_judge_config, load_models_config
+from src.config import (
+    load_attacks_config,
+    load_judge_config,
+    load_models_config,
+    load_system_prompts_config,
+)
 from src.logging.recorder import Recorder
 from src.scoring.judge import JudgeScorer
 from src.scoring.rule_based import RuleBasedClassifier
@@ -69,6 +74,7 @@ def main() -> None:
     models_config = load_models_config(_CONFIGS_DIR / "models.yaml")
     attacks_config = load_attacks_config(_CONFIGS_DIR / "attacks.yaml")
     judge_config = load_judge_config(_CONFIGS_DIR / "judge.yaml")
+    system_prompts = load_system_prompts_config(_CONFIGS_DIR / "system_prompts.yaml")
 
     random.seed(attacks_config.seed)
 
@@ -122,6 +128,7 @@ def main() -> None:
             judge=judge,
             classifier=classifier,
             recorder=recorder,
+            system_prompts=system_prompts,
         )
 
     logger.info("Run complete. %d records logged to results/%s.jsonl", len(records), run_id)

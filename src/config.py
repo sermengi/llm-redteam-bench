@@ -74,3 +74,16 @@ def load_judge_config(path: Path) -> JudgeConfig:
     """Load and validate judge.yaml."""
     with open(path) as f:
         return JudgeConfig(**yaml.safe_load(f))
+
+
+class SystemPromptsConfig(BaseModel):
+    """Top-level system_prompts.yaml schema."""
+
+    default: str
+    categories: dict[str, str] = {}
+
+
+def load_system_prompts_config(path: Path) -> SystemPromptsConfig:
+    """Load and validate system_prompts.yaml."""
+    with open(path) as f:
+        return SystemPromptsConfig(**yaml.safe_load(f))
