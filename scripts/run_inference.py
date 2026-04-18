@@ -82,18 +82,18 @@ def main() -> None:
     )
 
     attacks = load_attacks(args.category, attacks_config)
-    client = ModalHFClient(model_name=args.model)
     recorder = Recorder(results_dir=_RESULTS_DIR, verdict_threshold="borderline")
 
-    records = pipeline.run_inference_batch(
-        attacks=attacks,
-        model_name=args.model,
-        client=client,
-        owasp_category=args.category,
-        run_id=run_id,
-        config_hash=config_hash,
-        recorder=recorder,
-    )
+    with ModalHFClient(model_name=args.model) as client:
+        records = pipeline.run_inference_batch(
+            attacks=attacks,
+            model_name=args.model,
+            client=client,
+            owasp_category=args.category,
+            run_id=run_id,
+            config_hash=config_hash,
+            recorder=recorder,
+        )
 
     raw_path = _RESULTS_DIR / "raw" / f"{run_id}.jsonl"
     logger.info(

@@ -58,6 +58,10 @@ class ModalHFClient(ModelClient):
     """Local wrapper that dispatches inference to a Modal cloud T4 GPU container.
 
     The remote container loads the model once and handles all .generate() calls.
+    Use as a context manager to keep the app alive across multiple calls::
+
+        with ModalHFClient(model_name="...") as client:
+            result = client.generate(prompt, system_prompt)
     """
 
     def __init__(self, model_name: str) -> None:
@@ -68,6 +72,17 @@ class ModalHFClient(ModelClient):
         """
         self.model_name = model_name
         self._remote = _ModalInference(model_name=model_name)
+        self._app_ctx = None
+
+    def __enter__(self) -> "ModalHFClient":
+        self._app_ctx = app.run()
+        self._app_ctx.__enter__()
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        if self._app_ctx is not None:
+            self._app_ctx.__exit__(*args)
+            self._app_ctx = None
 
     def generate(self, prompt: str, system_prompt: str) -> str:
         """Dispatch a single inference request to the Modal container.
