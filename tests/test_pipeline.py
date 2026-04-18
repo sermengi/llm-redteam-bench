@@ -136,7 +136,6 @@ def test_run_indirect_injection_overrides_category_prompt():
         recorder=recorder,
         system_prompts=sp,
     )
-    # indirect_injection injects the attack payload into the system prompt regardless of category
     assert "Ignore all previous instructions." in record.system_prompt
     assert "search_web" not in record.system_prompt
 

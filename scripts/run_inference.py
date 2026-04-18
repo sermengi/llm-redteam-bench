@@ -104,7 +104,6 @@ def main() -> None:
         len(attacks),
         raw_path,
     )
-    print(raw_path)
 
 
 if __name__ == "__main__":
