@@ -26,17 +26,17 @@ class PromptsPerCategory(BaseModel):
 
     manual: int
     pyrit: int
-    deepteam: int
+    template: int
     total: int
 
     @model_validator(mode="after")
     def validate_total(self) -> "PromptsPerCategory":
-        """Ensure manual + pyrit + deepteam == total."""
-        computed = self.manual + self.pyrit + self.deepteam
+        """Ensure manual + pyrit + template == total."""
+        computed = self.manual + self.pyrit + self.template
         if computed != self.total:
             raise ValueError(
-                f"manual + pyrit + deepteam must equal total: "
-                f"{self.manual} + {self.pyrit} + {self.deepteam} = {computed} != {self.total}"
+                f"manual + pyrit + template must equal total: "
+                f"{self.manual} + {self.pyrit} + {self.template} = {computed} != {self.total}"
             )
         return self
 

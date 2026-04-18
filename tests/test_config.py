@@ -28,7 +28,7 @@ def test_attacks_config_total_validated():
 
     config = load_attacks_config(CONFIGS_DIR / "attacks.yaml")
     p = config.prompts_per_category
-    assert p.manual + p.pyrit + p.deepteam == p.total
+    assert p.manual + p.pyrit + p.template == p.total  # was: p.deepteam
 
 
 def test_judge_config_loads():
@@ -43,8 +43,10 @@ def test_judge_config_loads():
 def test_prompts_per_category_invalid_total_raises():
     from src.config import PromptsPerCategory
 
-    with pytest.raises(ValidationError, match="manual \\+ pyrit \\+ deepteam must equal total"):
-        PromptsPerCategory(manual=5, pyrit=15, deepteam=10, total=999)
+    with pytest.raises(
+        ValidationError, match="manual \\+ pyrit \\+ template must equal total"
+    ):  # was: deepteam
+        PromptsPerCategory(manual=5, pyrit=15, template=10, total=999)  # was: deepteam=10
 
 
 def test_model_config_missing_backend_raises():

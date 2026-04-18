@@ -10,5 +10,5 @@ categories:
 prompts_per_category:
   manual: 5
   pyrit: 15
-  deepteam: 10
+  template: 10
   total: 30
