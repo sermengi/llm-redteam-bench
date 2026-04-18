@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from src.attacks.loader import AttackPrompt, load_attacks
 from src.config import load_attacks_config
 
@@ -78,7 +80,7 @@ def test_load_attacks_sources_present():
     config = load_attacks_config(Path(REPO_ROOT / "configs/attacks.yaml"))
     attacks = load_attacks("LLM01", config)
     sources = {a.attack_source for a in attacks}
-    assert sources == {"manual", "pyrit", "deepteam"}
+    assert sources == {"manual", "pyrit", "template"}
 
 
 def test_load_attacks_strategies_present():
@@ -102,14 +104,22 @@ def test_load_attacks_pyrit_count():
     assert len(pyrit_attacks) == config.prompts_per_category.pyrit
 
 
-def test_load_attacks_deepteam_count():
+def test_load_attacks_template_count():
     config = load_attacks_config(Path(REPO_ROOT / "configs/attacks.yaml"))
     attacks = load_attacks("LLM01", config)
-    deepteam_attacks = [a for a in attacks if a.attack_source == "deepteam"]
-    assert len(deepteam_attacks) == config.prompts_per_category.deepteam
+    template_attacks = [a for a in attacks if a.attack_source == "template"]
+    assert len(template_attacks) == config.prompts_per_category.template
 
 
 def test_load_attacks_llm06():
     config = load_attacks_config(Path(REPO_ROOT / "configs/attacks.yaml"))
     attacks = load_attacks("LLM06", config)
     assert len(attacks) == config.prompts_per_category.total
+
+
+@pytest.mark.parametrize("category", ["LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"])
+def test_load_attacks_all_categories(category):
+    config = load_attacks_config(Path(REPO_ROOT / "configs/attacks.yaml"))
+    attacks = load_attacks(category, config)
+    assert len(attacks) == config.prompts_per_category.total
+    assert all(isinstance(a, AttackPrompt) for a in attacks)

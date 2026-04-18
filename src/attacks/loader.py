@@ -52,7 +52,7 @@ def load_attacks(category: str, config: AttacksConfig) -> list[AttackPrompt]:
 
     Sources and counts are driven by config.prompts_per_category.
     Strategy assignment: manual → direct_injection; PyRIT → split direct/indirect;
-    DeepTeam → direct_injection.
+    template → direct_injection.
 
     Args:
         category: OWASP category string (e.g. 'LLM01').
@@ -61,23 +61,22 @@ def load_attacks(category: str, config: AttacksConfig) -> list[AttackPrompt]:
     Returns:
         Flat list of AttackPrompt, length == config.prompts_per_category.total.
     """
-    # Deferred to avoid ImportError while pyrit_attacks/deepteam_attacks are not yet created.
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
     from src.attacks.pyrit_attacks import generate_pyrit_prompts
+    from src.attacks.template_attacks import generate_template_prompts
 
     counts = config.prompts_per_category
     manual = _load_manual(category, counts.manual)
     seed_prompts = [a.prompt for a in manual]
     pyrit = generate_pyrit_prompts(category, seed_prompts=seed_prompts, n=counts.pyrit)
-    deepteam = generate_deepteam_prompts(category, n=counts.deepteam)
+    template = generate_template_prompts(category, n=counts.template)
 
-    all_attacks = manual + pyrit + deepteam
+    all_attacks = manual + pyrit + template
     logger.info(
-        "Loaded %d attacks for %s (manual=%d pyrit=%d deepteam=%d)",
+        "Loaded %d attacks for %s (manual=%d pyrit=%d template=%d)",
         len(all_attacks),
         category,
         len(manual),
         len(pyrit),
-        len(deepteam),
+        len(template),
     )
     return all_attacks
