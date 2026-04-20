@@ -123,3 +123,17 @@ def test_load_attacks_all_categories(category):
     attacks = load_attacks(category, config)
     assert len(attacks) == config.prompts_per_category.total
     assert all(isinstance(a, AttackPrompt) for a in attacks)
+
+
+def test_load_attacks_single_converter_produces_correct_pyrit_count():
+    from src.config import AttacksConfig, PromptsPerCategory
+
+    config = AttacksConfig(
+        seed=42,
+        categories=["LLM01"],
+        prompts_per_category=PromptsPerCategory(manual=5, pyrit=2, template=5, total=12),
+        pyrit_converters=["base64"],
+    )
+    attacks = load_attacks("LLM01", config)
+    pyrit_attacks = [a for a in attacks if a.attack_source == "pyrit"]
+    assert len(pyrit_attacks) == 2

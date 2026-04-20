@@ -67,7 +67,12 @@ def load_attacks(category: str, config: AttacksConfig) -> list[AttackPrompt]:
     counts = config.prompts_per_category
     manual = _load_manual(category, counts.manual)
     seed_prompts = [a.prompt for a in manual]
-    pyrit = generate_pyrit_prompts(category, seed_prompts=seed_prompts, n=counts.pyrit)
+    pyrit = generate_pyrit_prompts(
+        category,
+        seed_prompts=seed_prompts,
+        n=counts.pyrit,
+        converters=config.pyrit_converters,
+    )
     template = generate_template_prompts(category, n=counts.template)
 
     all_attacks = manual + pyrit + template
