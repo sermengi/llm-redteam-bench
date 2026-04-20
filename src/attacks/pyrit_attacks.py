@@ -24,7 +24,11 @@ logger = logging.getLogger(__name__)
 
 # Shared instances are safe because these converters are stateless.
 # If adding stateful converters later, instantiate per-call instead.
-_CONVERTERS = [Base64Converter(), ROT13Converter(), LeetspeakConverter()]
+_CONVERTER_MAP: dict[str, PromptConverter] = {
+    "base64": Base64Converter(),
+    "rot13": ROT13Converter(),
+    "leetspeak": LeetspeakConverter(),
+}
 
 
 def _run_coro_sync(coro: Coroutine[Any, Any, Any]) -> Any:
@@ -71,23 +75,28 @@ def generate_pyrit_prompts(
     category: str,
     seed_prompts: list[str],
     n: int,
+    converters: list[str] | None = None,
 ) -> list[AttackPrompt]:
     """Generate n attack prompts using PyRIT converters applied to seed_prompts.
 
-    Applies each of 3 converters to each seed prompt, producing len(seed_prompts) * 3
-    variants, then takes the first n. First ceil(n/2) are direct_injection, rest are
-    indirect_injection.
+    Applies each active converter to each seed prompt, then takes the first n.
+    First ceil(n/2) are direct_injection, rest are indirect_injection.
 
     Args:
         category: OWASP category string (unused here, reserved for future filtering).
         seed_prompts: Base prompts to convert (typically the 5 manual prompts).
         n: Total number of PyRIT prompts to return.
+        converters: Converter names to use (subset of 'base64', 'rot13', 'leetspeak').
+                    None means use all three.
 
     Returns:
         List of AttackPrompt with attack_source='pyrit'.
     """
+    active_names = converters if converters is not None else list(_CONVERTER_MAP)
+    active_converters = [_CONVERTER_MAP[name] for name in active_names]
+
     variants: list[str] = []
-    for converter in _CONVERTERS:
+    for converter in active_converters:
         for seed in seed_prompts:
             try:
                 variants.append(_convert_sync(seed, converter))
