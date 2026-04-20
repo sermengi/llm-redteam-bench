@@ -93,6 +93,11 @@ def generate_pyrit_prompts(
         List of AttackPrompt with attack_source='pyrit'.
     """
     active_names = converters if converters is not None else list(_CONVERTER_MAP)
+    unknown = [n for n in active_names if n not in _CONVERTER_MAP]
+    if unknown:
+        raise ValueError(
+            f"Unknown converter name(s): {unknown}. " f"Valid names: {list(_CONVERTER_MAP)}"
+        )
     active_converters = [_CONVERTER_MAP[name] for name in active_names]
 
     variants: list[str] = []
@@ -113,8 +118,7 @@ def generate_pyrit_prompts(
             f"generate_pyrit_prompts: needed {n} variants but only produced "
             f"{len(variants)}. Check converter failure warnings in the logs."
         )
-    actual_n = len(variants)
-    n_direct = (actual_n + 1) // 2  # ceiling division — direct gets the extra if n is odd
+    n_direct = (n + 1) // 2  # ceiling division — direct gets the extra if n is odd
 
     result: list[AttackPrompt] = []
     for i, prompt in enumerate(variants):
