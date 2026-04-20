@@ -9,6 +9,11 @@ categories:
 
 prompts_per_category:
   manual: 5
-  pyrit: 15
-  template: 10
-  total: 30
+  pyrit: 5
+  template: 5
+  total: 15
+
+pyrit_converters:
+  - base64
+  - rot13
+  - leetspeak

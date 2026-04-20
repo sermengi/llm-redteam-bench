@@ -52,3 +52,24 @@ def test_model_config_missing_backend_raises():
 
     with pytest.raises(ValidationError):
         ModelConfig(name="some-model")  # backend is required
+
+
+def test_attacks_config_default_pyrit_converters():
+    from src.config import load_attacks_config
+
+    config = load_attacks_config(CONFIGS_DIR / "attacks.yaml")
+    assert config.pyrit_converters == ["base64", "rot13", "leetspeak"]
+
+
+def test_attacks_config_invalid_converter_raises():
+    from pydantic import ValidationError
+
+    from src.config import AttacksConfig, PromptsPerCategory
+
+    with pytest.raises(ValidationError):
+        AttacksConfig(
+            seed=42,
+            categories=["LLM01"],
+            prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
+            pyrit_converters=["not_a_real_converter"],
+        )

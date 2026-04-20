@@ -41,12 +41,16 @@ class PromptsPerCategory(BaseModel):
         return self
 
 
+PyritConverterName = Literal["base64", "rot13", "leetspeak"]
+
+
 class AttacksConfig(BaseModel):
     """Top-level attacks.yaml schema."""
 
     seed: int
     categories: list[str]
     prompts_per_category: PromptsPerCategory
+    pyrit_converters: list[PyritConverterName] = ["base64", "rot13", "leetspeak"]
 
 
 class JudgeConfig(BaseModel):
