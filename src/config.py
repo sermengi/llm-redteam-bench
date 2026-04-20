@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModelConfig(BaseModel):
@@ -41,6 +41,8 @@ class PromptsPerCategory(BaseModel):
         return self
 
 
+# Valid PyRIT converter names. Extend this Literal and _CONVERTER_MAP in
+# pyrit_attacks.py together when adding new converters.
 PyritConverterName = Literal["base64", "rot13", "leetspeak"]
 
 
@@ -50,7 +52,10 @@ class AttacksConfig(BaseModel):
     seed: int
     categories: list[str]
     prompts_per_category: PromptsPerCategory
-    pyrit_converters: list[PyritConverterName] = ["base64", "rot13", "leetspeak"]
+    pyrit_converters: list[PyritConverterName] = Field(
+        default_factory=lambda: ["base64", "rot13", "leetspeak"],
+        min_length=1,
+    )
 
 
 class JudgeConfig(BaseModel):

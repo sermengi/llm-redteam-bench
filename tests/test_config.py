@@ -66,10 +66,36 @@ def test_attacks_config_invalid_converter_raises():
 
     from src.config import AttacksConfig, PromptsPerCategory
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="not_a_real_converter"):
         AttacksConfig(
             seed=42,
             categories=["LLM01"],
             prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
             pyrit_converters=["not_a_real_converter"],
+        )
+
+
+def test_attacks_config_pyrit_converters_default_when_omitted():
+    from src.config import AttacksConfig, PromptsPerCategory
+
+    config = AttacksConfig(
+        seed=42,
+        categories=["LLM01"],
+        prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
+        # pyrit_converters intentionally omitted
+    )
+    assert config.pyrit_converters == ["base64", "rot13", "leetspeak"]
+
+
+def test_attacks_config_empty_pyrit_converters_raises():
+    from pydantic import ValidationError
+
+    from src.config import AttacksConfig, PromptsPerCategory
+
+    with pytest.raises(ValidationError):
+        AttacksConfig(
+            seed=42,
+            categories=["LLM01"],
+            prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
+            pyrit_converters=[],
         )
