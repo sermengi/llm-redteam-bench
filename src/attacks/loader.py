@@ -25,7 +25,7 @@ class AttackPrompt:
     """A single attack prompt with its source and strategy metadata."""
 
     prompt: str
-    attack_source: Literal["pyrit", "template", "manual"]
+    attack_source: Literal["pyrit", "deepteam", "template", "manual"]
     attack_strategy: Literal["direct_injection", "indirect_injection", "multi_turn_crescendo"]
 
 
