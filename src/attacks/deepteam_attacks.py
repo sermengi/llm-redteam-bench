@@ -85,6 +85,7 @@ def generate_deepteam_prompts(
     ]
     attack_methods = [_ATTACK_METHOD_MAP[a]() for a in config.attack_methods]
 
+    # deepteam==1.0.6 uses purpose/max_concurrent; async_mode kwarg does not exist in this version
     simulator = AttackSimulator(purpose=category, max_concurrent=1)
     test_cases = simulator.simulate(
         attacks_per_vulnerability_type=config.attacks_per_vulnerability_type,
@@ -100,7 +101,15 @@ def generate_deepteam_prompts(
         if tc.error is not None:
             logger.warning("DeepTeam skipped a test case for %s (error: %s)", category, tc.error)
             continue
-        strategy = _STRATEGY_MAP.get(tc.attack_method or "", "direct_injection")
+        method = tc.attack_method or ""
+        strategy = _STRATEGY_MAP.get(method)
+        if strategy is None:
+            logger.warning(
+                "Unknown tc.attack_method %r for %s; defaulting to direct_injection",
+                method,
+                category,
+            )
+            strategy = "direct_injection"
         result.append(
             AttackPrompt(
                 prompt=tc.input,
