@@ -20,7 +20,7 @@ class RawRecord(BaseModel):
     timestamp: datetime
     model_name: str
     owasp_category: Literal["LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"]
-    attack_source: Literal["pyrit", "template", "manual"]
+    attack_source: Literal["pyrit", "deepteam", "manual"]
     attack_strategy: Literal["direct_injection", "multi_turn_crescendo", "indirect_injection"]
     attacker_prompt: str
     system_prompt: str
