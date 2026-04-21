@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class ModelConfig(BaseModel):
@@ -22,28 +22,30 @@ class ModelsConfig(BaseModel):
 
 
 class PromptsPerCategory(BaseModel):
-    """Attack prompt counts per source. Validated to sum to total."""
+    """Attack prompt counts per source. DeepTeam count is runtime-derived."""
 
     manual: int
     pyrit: int
-    template: int
-    total: int
-
-    @model_validator(mode="after")
-    def validate_total(self) -> "PromptsPerCategory":
-        """Ensure manual + pyrit + template == total."""
-        computed = self.manual + self.pyrit + self.template
-        if computed != self.total:
-            raise ValueError(
-                f"manual + pyrit + template must equal total: "
-                f"{self.manual} + {self.pyrit} + {self.template} = {computed} != {self.total}"
-            )
-        return self
 
 
 # Valid PyRIT converter names. Extend this Literal and _CONVERTER_MAP in
 # pyrit_attacks.py together when adding new converters.
 PyritConverterName = Literal["base64", "rot13", "leetspeak"]
+
+
+class DeepTeamCategoryConfig(BaseModel):
+    """DeepTeam config for a single OWASP category."""
+
+    vulnerabilities: list[str]
+    attacks_per_vulnerability_type: int
+    attack_methods: list[str]
+
+
+class DeepTeamConfig(BaseModel):
+    """Top-level deepteam config block in attacks.yaml."""
+
+    simulator_model: str = "gpt-3.5-turbo-0125"
+    categories: dict[str, DeepTeamCategoryConfig]
 
 
 class AttacksConfig(BaseModel):
@@ -56,6 +58,7 @@ class AttacksConfig(BaseModel):
         default_factory=lambda: ["base64", "rot13", "leetspeak"],
         min_length=1,
     )
+    deepteam: DeepTeamConfig
 
 
 class JudgeConfig(BaseModel):

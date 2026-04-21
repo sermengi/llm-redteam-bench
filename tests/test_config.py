@@ -23,14 +23,6 @@ def test_attacks_config_loads():
     assert set(config.categories) == {"LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"}
 
 
-def test_attacks_config_total_validated():
-    from src.config import load_attacks_config
-
-    config = load_attacks_config(CONFIGS_DIR / "attacks.yaml")
-    p = config.prompts_per_category
-    assert p.manual + p.pyrit + p.template == p.total
-
-
 def test_judge_config_loads():
     from src.config import load_judge_config
 
@@ -38,13 +30,6 @@ def test_judge_config_loads():
     assert config.model == "gpt-4o-mini"
     assert config.temperature == 0.0
     assert config.verdict_threshold == "borderline"
-
-
-def test_prompts_per_category_invalid_total_raises():
-    from src.config import PromptsPerCategory
-
-    with pytest.raises(ValidationError, match="manual \\+ pyrit \\+ template must equal total"):
-        PromptsPerCategory(manual=5, pyrit=15, template=10, total=999)
 
 
 def test_model_config_missing_backend_raises():
@@ -58,31 +43,50 @@ def test_attacks_config_default_pyrit_converters():
     from src.config import load_attacks_config
 
     config = load_attacks_config(CONFIGS_DIR / "attacks.yaml")
-    assert config.pyrit_converters == ["base64", "rot13", "leetspeak"]
+    assert config.pyrit_converters == ["base64"]
 
 
 def test_attacks_config_invalid_converter_raises():
     from pydantic import ValidationError
 
-    from src.config import AttacksConfig, PromptsPerCategory
+    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
 
     with pytest.raises(ValidationError, match="not_a_real_converter"):
         AttacksConfig(
             seed=42,
             categories=["LLM01"],
-            prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
+            prompts_per_category=PromptsPerCategory(manual=5, pyrit=5),
             pyrit_converters=["not_a_real_converter"],
+            deepteam=DeepTeamConfig(
+                simulator_model="gpt-3.5-turbo-0125",
+                categories={
+                    "LLM01": DeepTeamCategoryConfig(
+                        vulnerabilities=["PromptLeakage"],
+                        attacks_per_vulnerability_type=1,
+                        attack_methods=["PromptInjection"],
+                    )
+                },
+            ),
         )
 
 
 def test_attacks_config_pyrit_converters_default_when_omitted():
-    from src.config import AttacksConfig, PromptsPerCategory
+    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
 
     config = AttacksConfig(
         seed=42,
         categories=["LLM01"],
-        prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
-        # pyrit_converters intentionally omitted
+        prompts_per_category=PromptsPerCategory(manual=5, pyrit=5),
+        deepteam=DeepTeamConfig(
+            simulator_model="gpt-3.5-turbo-0125",
+            categories={
+                "LLM01": DeepTeamCategoryConfig(
+                    vulnerabilities=["PromptLeakage"],
+                    attacks_per_vulnerability_type=1,
+                    attack_methods=["PromptInjection"],
+                )
+            },
+        ),
     )
     assert config.pyrit_converters == ["base64", "rot13", "leetspeak"]
 
@@ -90,12 +94,83 @@ def test_attacks_config_pyrit_converters_default_when_omitted():
 def test_attacks_config_empty_pyrit_converters_raises():
     from pydantic import ValidationError
 
-    from src.config import AttacksConfig, PromptsPerCategory
+    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
 
     with pytest.raises(ValidationError):
         AttacksConfig(
             seed=42,
             categories=["LLM01"],
-            prompts_per_category=PromptsPerCategory(manual=5, pyrit=5, template=5, total=15),
+            prompts_per_category=PromptsPerCategory(manual=5, pyrit=5),
             pyrit_converters=[],
+            deepteam=DeepTeamConfig(
+                simulator_model="gpt-3.5-turbo-0125",
+                categories={
+                    "LLM01": DeepTeamCategoryConfig(
+                        vulnerabilities=["PromptLeakage"],
+                        attacks_per_vulnerability_type=1,
+                        attack_methods=["PromptInjection"],
+                    )
+                },
+            ),
         )
+
+
+def test_deepteam_category_config_parses():
+    from src.config import DeepTeamCategoryConfig
+
+    c = DeepTeamCategoryConfig(
+        vulnerabilities=["PIILeakage"],
+        attacks_per_vulnerability_type=2,
+        attack_methods=["PromptInjection"],
+    )
+    assert c.vulnerabilities == ["PIILeakage"]
+    assert c.attacks_per_vulnerability_type == 2
+    assert c.attack_methods == ["PromptInjection"]
+
+
+def test_deepteam_config_parses():
+    from src.config import DeepTeamCategoryConfig, DeepTeamConfig
+
+    dc = DeepTeamConfig(
+        simulator_model="gpt-3.5-turbo-0125",
+        categories={
+            "LLM01": DeepTeamCategoryConfig(
+                vulnerabilities=["PromptLeakage"],
+                attacks_per_vulnerability_type=1,
+                attack_methods=["PromptInjection"],
+            )
+        },
+    )
+    assert dc.simulator_model == "gpt-3.5-turbo-0125"
+    assert "LLM01" in dc.categories
+
+
+def test_prompts_per_category_has_no_total():
+    from src.config import PromptsPerCategory
+
+    p = PromptsPerCategory(manual=5, pyrit=5)
+    assert p.manual == 5
+    assert p.pyrit == 5
+    assert not hasattr(p, "total")
+    assert not hasattr(p, "template")
+
+
+def test_attacks_config_loads_deepteam_section():
+    from pathlib import Path
+
+    from src.config import load_attacks_config
+
+    config = load_attacks_config(Path("configs/attacks.yaml"))
+    assert config.deepteam.simulator_model == "gpt-3.5-turbo-0125"
+    assert set(config.deepteam.categories.keys()) == {
+        "LLM01",
+        "LLM02",
+        "LLM04",
+        "LLM06",
+        "LLM07",
+        "LLM09",
+    }
+    llm01 = config.deepteam.categories["LLM01"]
+    assert llm01.vulnerabilities == ["PromptLeakage", "IndirectInstruction"]
+    assert llm01.attacks_per_vulnerability_type == 1
+    assert "PromptInjection" in llm01.attack_methods
