@@ -12,7 +12,7 @@ dependencies = [
     "transformers>=4.44",
     "torch>=2.0",
     "pyrit>=0.9",
-    "deepteam>=1.0",
+    "deepteam==1.0.6",
     "modal>=0.70",
 ]
 
