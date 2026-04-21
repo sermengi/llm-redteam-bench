@@ -25,7 +25,7 @@ class AttackPrompt:
     """A single attack prompt with its source and strategy metadata."""
 
     prompt: str
-    attack_source: Literal["pyrit", "deepteam", "template", "manual"]
+    attack_source: Literal["pyrit", "deepteam", "manual"]
     attack_strategy: Literal["direct_injection", "indirect_injection", "multi_turn_crescendo"]
 
 
@@ -50,19 +50,18 @@ def _load_manual(category: str, n: int) -> list[AttackPrompt]:
 def load_attacks(category: str, config: AttacksConfig) -> list[AttackPrompt]:
     """Load all attack prompts for a given category from all three sources.
 
-    Sources and counts are driven by config.prompts_per_category.
-    Strategy assignment: manual → direct_injection; PyRIT → split direct/indirect;
-    template → direct_injection.
+    Sources and counts are driven by config. DeepTeam count is runtime-derived
+    from the deepteam.categories config block. Total is logged, not pre-validated.
 
     Args:
         category: OWASP category string (e.g. 'LLM01').
         config: Loaded AttacksConfig from configs/attacks.yaml.
 
     Returns:
-        Flat list of AttackPrompt, length == config.prompts_per_category.total.
+        Flat list of AttackPrompt from manual + pyrit + deepteam sources.
     """
+    from src.attacks.deepteam_attacks import generate_deepteam_prompts
     from src.attacks.pyrit_attacks import generate_pyrit_prompts
-    from src.attacks.template_attacks import generate_template_prompts
 
     counts = config.prompts_per_category
     manual = _load_manual(category, counts.manual)
@@ -73,15 +72,19 @@ def load_attacks(category: str, config: AttacksConfig) -> list[AttackPrompt]:
         n=counts.pyrit,
         converters=config.pyrit_converters,
     )
-    template = generate_template_prompts(category, n=counts.template)
+    deepteam = generate_deepteam_prompts(
+        category,
+        config=config.deepteam.categories[category],
+        simulator_model=config.deepteam.simulator_model,
+    )
 
-    all_attacks = manual + pyrit + template
+    all_attacks = manual + pyrit + deepteam
     logger.info(
-        "Loaded %d attacks for %s (manual=%d pyrit=%d template=%d)",
+        "Loaded %d attacks for %s (manual=%d pyrit=%d deepteam=%d)",
         len(all_attacks),
         category,
         len(manual),
         len(pyrit),
-        len(template),
+        len(deepteam),
     )
     return all_attacks
