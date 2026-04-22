@@ -18,7 +18,7 @@ from pathlib import Path
 import mlflow
 
 from src import pipeline
-from src.attacks.loader import load_attacks
+from src.attacks.loader import load_attacks, resolve_attacks
 from src.config import (
     load_attacks_config,
     load_judge_config,
@@ -38,14 +38,60 @@ logger = logging.getLogger(__name__)
 _CONFIGS_DIR = Path("configs")
 _PROMPTS_DIR = Path("prompts")
 _RESULTS_DIR = Path("results")
+_PROMPTS_CACHE_DIR = _RESULTS_DIR / "prompts"
 
 _VALID_CATEGORIES = ["LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"]
+
+
+def _compute_config_hash(attacks_config) -> str:
+    """Hash attacks.yaml and all deepteam custom_prompt_file paths.
+
+    Including prompt template files ensures the cache is invalidated when
+    a DeepTeam generator template changes, not just the YAML config.
+    """
+    hasher = hashlib.sha256()
+    hasher.update((_CONFIGS_DIR / "attacks.yaml").read_bytes())
+    for cat_cfg in attacks_config.deepteam.categories.values():
+        prompt_file = Path(cat_cfg.custom_prompt_file)
+        if prompt_file.exists():
+            hasher.update(prompt_file.read_bytes())
+    return hasher.hexdigest()
 
 
 def _build_run_id(config_hash: str) -> str:
     """Generate a unique run ID: timestamp + first 6 chars of attacks.yaml SHA-256."""
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     return f"{timestamp}-{config_hash[:6]}"
+
+
+def _print_dry_run_summary(
+    attacks: list,
+    category: str,
+    run_id: str,
+    config_hash: str,
+    cache_path: Path,
+) -> None:
+    """Print a formatted prompt summary table and cache info to stdout."""
+    from collections import defaultdict
+
+    by_source: dict[str, list] = defaultdict(list)
+    for a in attacks:
+        by_source[a.attack_source].append(a)
+
+    print(f"=== Dry Run: {category}  run_id={run_id} ===")
+    print()
+    print(f"  {'source':<12}{'strategy':<26}{'count':>5}  sample")
+    print(f"  {'─' * 12}{'─' * 26}{'─' * 5}  {'─' * 50}")
+    for source in ("manual", "pyrit", "deepteam"):
+        group = by_source.get(source, [])
+        if not group:
+            continue
+        sample = group[0].prompt[:50].replace("\n", " ")
+        strategy = group[0].attack_strategy
+        print(f"  {source:<12}{strategy:<26}{len(group):>5}  {sample}...")
+    print()
+    print(f"  Total: {len(attacks)} prompts  |  Config hash: {config_hash[:8]}  |  Saved: {cache_path}")
+    print()
 
 
 def main() -> None:
@@ -82,25 +128,18 @@ def main() -> None:
         logger.error("Category %s not listed in configs/attacks.yaml", args.category)
         sys.exit(1)
 
-    config_hash = hashlib.sha256((_CONFIGS_DIR / "attacks.yaml").read_bytes()).hexdigest()
+    config_hash = _compute_config_hash(attacks_config)
     run_id = _build_run_id(config_hash)
-    attacks = load_attacks(args.category, attacks_config)
+    attacks = resolve_attacks(args.category, attacks_config, config_hash, _PROMPTS_CACHE_DIR)
 
     if args.dry_run:
-        logger.info(
-            "Dry run — run_id=%s category=%s attacks_loaded=%d",
-            run_id,
-            args.category,
-            len(attacks),
+        _print_dry_run_summary(
+            attacks=attacks,
+            category=args.category,
+            run_id=run_id,
+            config_hash=config_hash,
+            cache_path=_PROMPTS_CACHE_DIR / f"{args.category}.json",
         )
-        for i, attack in enumerate(attacks[:3]):
-            logger.info(
-                "Attack[%d] source=%s strategy=%s prompt=%s",
-                i,
-                attack.attack_source,
-                attack.attack_strategy,
-                attack.prompt[:80],
-            )
         return
 
     target_models = [m for m in models_config.models if args.model is None or m.name == args.model]
