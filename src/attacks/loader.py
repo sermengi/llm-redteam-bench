@@ -168,3 +168,28 @@ def load_cached_prompts(
     prompts = [AttackPrompt(**p) for p in data.prompts]
     logger.info("Cache hit: loaded %d prompts for %s from %s", len(prompts), category, path)
     return prompts
+
+
+def resolve_attacks(
+    category: str,
+    config: AttacksConfig,
+    config_hash: str,
+    cache_dir: Path,
+) -> list[AttackPrompt]:
+    """Load cached prompts if available and hash matches, else generate and cache.
+
+    Args:
+        category: OWASP category string (e.g. 'LLM01').
+        config: Loaded AttacksConfig from configs/attacks.yaml.
+        config_hash: Combined SHA-256 of attacks.yaml + deepteam prompt templates.
+        cache_dir: Directory for prompt cache files.
+
+    Returns:
+        List of AttackPrompt from cache or freshly generated.
+    """
+    cached = load_cached_prompts(category, config_hash, cache_dir)
+    if cached is not None:
+        return cached
+    attacks = load_attacks(category, config)
+    save_prompts(attacks, category, config_hash, cache_dir)
+    return attacks

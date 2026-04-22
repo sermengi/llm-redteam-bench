@@ -1,10 +1,11 @@
 import dataclasses
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from src.attacks.loader import AttackPrompt, CachedPromptSet, load_attacks, load_cached_prompts, save_prompts
+from src.attacks.loader import AttackPrompt, CachedPromptSet, load_attacks, load_cached_prompts, resolve_attacks, save_prompts
 from src.config import load_attacks_config
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -248,3 +249,30 @@ def test_load_cached_prompts_returns_none_on_corrupt_file(tmp_path):
     (tmp_path / "LLM01.json").write_text("this is not valid json {{{")
     result = load_cached_prompts("LLM01", "any-hash", tmp_path)
     assert result is None
+
+
+# ── resolve_attacks ───────────────────────────────────────────────────────────
+
+
+def test_resolve_attacks_generates_and_caches_on_miss(tmp_path, mock_deepteam):
+    config = load_attacks_config(REPO_ROOT / "configs/attacks.yaml")
+    prompts = resolve_attacks("LLM01", config, "hash-abc", tmp_path)
+    assert len(prompts) > 0
+    assert (tmp_path / "LLM01.json").exists()
+
+
+def test_resolve_attacks_loads_from_cache_on_hit(tmp_path, mock_deepteam):
+    config = load_attacks_config(REPO_ROOT / "configs/attacks.yaml")
+    original = resolve_attacks("LLM01", config, "hash-xyz", tmp_path)
+    with patch("src.attacks.loader.load_attacks") as mock_load:
+        cached = resolve_attacks("LLM01", config, "hash-xyz", tmp_path)
+    mock_load.assert_not_called()
+    assert len(cached) == len(original)
+
+
+def test_resolve_attacks_regenerates_on_stale_hash(tmp_path, mock_deepteam):
+    config = load_attacks_config(REPO_ROOT / "configs/attacks.yaml")
+    resolve_attacks("LLM01", config, "hash-v1", tmp_path)
+    with patch("src.attacks.loader.load_attacks", wraps=load_attacks) as mock_load:
+        resolve_attacks("LLM01", config, "hash-v2", tmp_path)
+    mock_load.assert_called_once()
