@@ -152,7 +152,11 @@ def load_cached_prompts(
     path = cache_dir / f"{category}.json"
     if not path.exists():
         return None
-    data = CachedPromptSet.model_validate_json(path.read_text())
+    try:
+        data = CachedPromptSet.model_validate_json(path.read_text())
+    except (ValueError, Exception) as exc:
+        logger.warning("Cache file %s is corrupt, will regenerate: %s", path, exc)
+        return None
     if data.config_hash != config_hash:
         logger.info(
             "Cache stale for %s (stored=%s current=%s) — will regenerate",

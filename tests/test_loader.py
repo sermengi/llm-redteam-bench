@@ -1,8 +1,10 @@
+import dataclasses
+import json
 from pathlib import Path
 
 import pytest
 
-from src.attacks.loader import AttackPrompt, load_attacks
+from src.attacks.loader import AttackPrompt, CachedPromptSet, load_attacks, load_cached_prompts, save_prompts
 from src.config import load_attacks_config
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -186,10 +188,6 @@ def test_load_attacks_single_converter_produces_correct_pyrit_count(mock_deeptea
     assert len(pyrit_attacks) == 2
 
 
-import json
-import dataclasses
-from src.attacks.loader import save_prompts, load_cached_prompts, CachedPromptSet
-
 
 # ── save_prompts ─────────────────────────────────────────────────────────────
 
@@ -244,3 +242,9 @@ def test_load_cached_prompts_round_trip(tmp_path):
     assert loaded[0].attack_source == "pyrit"
     assert loaded[0].attack_strategy == "indirect_injection"
     assert loaded[1].prompt == "ignore sys"
+
+
+def test_load_cached_prompts_returns_none_on_corrupt_file(tmp_path):
+    (tmp_path / "LLM01.json").write_text("this is not valid json {{{")
+    result = load_cached_prompts("LLM01", "any-hash", tmp_path)
+    assert result is None
