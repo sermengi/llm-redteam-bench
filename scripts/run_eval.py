@@ -8,6 +8,7 @@ Usage:
 """
 
 import argparse
+from collections import defaultdict
 import hashlib
 import logging
 import random
@@ -51,7 +52,10 @@ def _compute_config_hash(attacks_config) -> str:
     """
     hasher = hashlib.sha256()
     hasher.update((_CONFIGS_DIR / "attacks.yaml").read_bytes())
-    for cat_cfg in attacks_config.deepteam.categories.values():
+    for key in sorted(attacks_config.deepteam.categories):
+        cat_cfg = attacks_config.deepteam.categories[key]
+        if not cat_cfg.custom_prompt_file:
+            continue
         prompt_file = Path(cat_cfg.custom_prompt_file)
         if prompt_file.exists():
             hasher.update(prompt_file.read_bytes())
@@ -72,15 +76,13 @@ def _print_dry_run_summary(
     cache_path: Path,
 ) -> None:
     """Print a formatted prompt summary table and cache info to stdout."""
-    from collections import defaultdict
-
     by_source: dict[str, list] = defaultdict(list)
     for a in attacks:
         by_source[a.attack_source].append(a)
 
     print(f"=== Dry Run: {category}  run_id={run_id} ===")
     print()
-    print(f"  {'source':<12}{'strategy':<26}{'count':>5}  sample")
+    print(f"  {'source':<12}{'sample_strategy':<26}{'count':>5}  sample")
     print(f"  {'─' * 12}{'─' * 26}{'─' * 5}  {'─' * 50}")
     for source in ("manual", "pyrit", "deepteam"):
         group = by_source.get(source, [])
