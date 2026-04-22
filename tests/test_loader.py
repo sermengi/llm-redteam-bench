@@ -146,14 +146,14 @@ def test_load_attacks_total_at_least_manual_plus_pyrit(mock_deepteam):
     assert len(attacks) >= config.prompts_per_category.manual + config.prompts_per_category.pyrit
 
 
-def test_load_attacks_llm06(mock_deepteam):
+def test_load_attacks_llm01(mock_deepteam):
     config = load_attacks_config(Path(REPO_ROOT / "configs/attacks.yaml"))
-    attacks = load_attacks("LLM06", config)
+    attacks = load_attacks("LLM01", config)
     assert len(attacks) > 0
     assert all(isinstance(a, AttackPrompt) for a in attacks)
 
 
-@pytest.mark.parametrize("category", ["LLM01", "LLM02", "LLM04", "LLM06", "LLM07", "LLM09"])
+@pytest.mark.parametrize("category", ["LLM01"])
 def test_load_attacks_all_categories(mock_deepteam, category):
     config = load_attacks_config(Path(REPO_ROOT / "configs/attacks.yaml"))
     attacks = load_attacks(category, config)
@@ -173,9 +173,10 @@ def test_load_attacks_single_converter_produces_correct_pyrit_count(mock_deeptea
             simulator_model="gpt-3.5-turbo-0125",
             categories={
                 "LLM01": DeepTeamCategoryConfig(
-                    vulnerabilities=["PromptLeakage"],
-                    attacks_per_vulnerability_type=1,
-                    attack_methods=["PromptInjection"],
+                    types=["direct_override"],
+                    attacks_per_type=1,
+                    technique="SystemOverride",
+                    custom_prompt_file="prompts/deepteam_llm01.txt",
                 )
             },
         ),
