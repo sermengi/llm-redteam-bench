@@ -1,167 +1,226 @@
-"""Tests for deepteam_attacks.py — all tests mock AttackSimulator.simulate."""
+"""Tests for deepteam_attacks.py — two-phase explicit workflow."""
+
+from enum import Enum
+from pathlib import Path
 
 import pytest
 
 from src.attacks.loader import AttackPrompt
-from src.config import DeepTeamCategoryConfig
 
 
-@pytest.fixture()
-def category_config():
-    return DeepTeamCategoryConfig(
-        vulnerabilities=["PromptLeakage"],
-        attacks_per_vulnerability_type=1,
-        attack_methods=["PromptInjection"],
-    )
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-
-@pytest.fixture()
-def fake_test_cases():
+def _make_test_cases(inputs: list[str]):
+    """Build RTTestCase objects with a minimal fake vulnerability_type Enum."""
     from deepteam.test_case import RTTestCase
-    from deepteam.vulnerabilities.prompt_leakage.types import PromptLeakageType
 
+    FakeType = Enum("FakeType", {"DIRECT_OVERRIDE": "direct_override"})
     return [
         RTTestCase(
-            vulnerability="PromptLeakage",
-            vulnerability_type=PromptLeakageType.INSTRUCTIONS,
-            input="injected prompt 1",
-            actual_output=None,
-            attack_method="PromptInjection",
-        ),
-        RTTestCase(
-            vulnerability="PromptLeakage",
-            vulnerability_type=PromptLeakageType.INSTRUCTIONS,
-            input="injected prompt 2",
-            actual_output=None,
-            attack_method="SyntheticContextInjection",
-        ),
+            vulnerability="LLM01 Prompt Injection",
+            vulnerability_type=FakeType.DIRECT_OVERRIDE,
+            input=text,
+        )
+        for text in inputs
     ]
 
 
-@pytest.fixture()
-def mock_simulator(monkeypatch, fake_test_cases):
+# ---------------------------------------------------------------------------
+# generate_baseline_attacks
+# ---------------------------------------------------------------------------
+
+def test_generate_baseline_attacks_returns_test_cases(monkeypatch):
+    from deepteam.vulnerabilities import CustomVulnerability
+
+    from src.attacks.deepteam_attacks import generate_baseline_attacks
+
+    fake_cases = _make_test_cases(["baseline 1", "baseline 2", "baseline 3"])
     monkeypatch.setattr(
-        "deepteam.attacks.attack_simulator.AttackSimulator.simulate",
-        lambda self, *args, **kwargs: fake_test_cases,
+        CustomVulnerability,
+        "simulate_attacks",
+        lambda self, **kwargs: fake_cases,
     )
 
+    vuln = CustomVulnerability(
+        name="LLM01 Prompt Injection",
+        criteria="test",
+        types=["direct_override"],
+        simulator_model="gpt-3.5-turbo-0125",
+    )
+    result = generate_baseline_attacks(vuln, purpose="LLM01", attacks_per_type=3)
 
-def test_returns_attack_prompt_instances(mock_simulator, category_config):
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
+    assert len(result) == 3
+    assert result[0].input == "baseline 1"
+    assert result[2].input == "baseline 3"
 
-    result = generate_deepteam_prompts("LLM01", category_config, "gpt-3.5-turbo-0125")
+
+# ---------------------------------------------------------------------------
+# enhance_attacks
+# ---------------------------------------------------------------------------
+
+def test_enhance_attacks_returns_attack_prompts(monkeypatch):
+    from deepteam.attacks.single_turn import SystemOverride
+
+    from src.attacks.deepteam_attacks import enhance_attacks
+
+    test_cases = _make_test_cases(["baseline 1", "baseline 2"])
+    monkeypatch.setattr(
+        SystemOverride,
+        "enhance",
+        lambda self, attack, **kwargs: f"enhanced: {attack}",
+    )
+
+    result = enhance_attacks(
+        test_cases=test_cases,
+        technique=SystemOverride(),
+        technique_name="SystemOverride",
+        strategy="direct_injection",
+        simulator_model="gpt-3.5-turbo-0125",
+        category="LLM01",
+    )
+
+    assert len(result) == 2
     assert all(isinstance(p, AttackPrompt) for p in result)
-
-
-def test_attack_source_is_deepteam(mock_simulator, category_config):
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
-
-    result = generate_deepteam_prompts("LLM01", category_config, "gpt-3.5-turbo-0125")
     assert all(p.attack_source == "deepteam" for p in result)
+    assert all(p.attack_strategy == "direct_injection" for p in result)
+    assert result[0].prompt == "enhanced: baseline 1"
+    assert result[1].prompt == "enhanced: baseline 2"
 
 
-def test_strategy_mapped_from_attack_method(mock_simulator, fake_test_cases, category_config):
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
-
-    result = generate_deepteam_prompts("LLM01", category_config, "gpt-3.5-turbo-0125")
-    by_prompt = {p.prompt: p.attack_strategy for p in result}
-    assert by_prompt["injected prompt 1"] == "direct_injection"
-    assert by_prompt["injected prompt 2"] == "indirect_injection"
-
-
-def test_unknown_vulnerability_raises_before_api_call(category_config):
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
-
-    bad_config = DeepTeamCategoryConfig(
-        vulnerabilities=["NonExistentVuln"],
-        attacks_per_vulnerability_type=1,
-        attack_methods=["PromptInjection"],
-    )
-    with pytest.raises(ValueError, match="Unknown vulnerability name"):
-        generate_deepteam_prompts("LLM01", bad_config, "gpt-3.5-turbo-0125")
-
-
-def test_unknown_attack_method_raises_before_api_call(category_config):
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
-
-    bad_config = DeepTeamCategoryConfig(
-        vulnerabilities=["PromptLeakage"],
-        attacks_per_vulnerability_type=1,
-        attack_methods=["NonExistentAttack"],
-    )
-    with pytest.raises(ValueError, match="Unknown attack method name"):
-        generate_deepteam_prompts("LLM01", bad_config, "gpt-3.5-turbo-0125")
-
-
-def test_test_cases_with_error_are_skipped(monkeypatch, category_config):
+def test_enhance_attacks_skips_none_input(monkeypatch):
+    from deepteam.attacks.single_turn import SystemOverride
     from deepteam.test_case import RTTestCase
-    from deepteam.vulnerabilities.prompt_leakage.types import PromptLeakageType
 
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
+    from src.attacks.deepteam_attacks import enhance_attacks
 
-    cases = [
+    FakeType = Enum("FakeType", {"DIRECT_OVERRIDE": "direct_override"})
+    test_cases = [
         RTTestCase(
-            vulnerability="PromptLeakage",
-            vulnerability_type=PromptLeakageType.INSTRUCTIONS,
-            input="good prompt",
-            actual_output=None,
-            attack_method="PromptInjection",
-        ),
-        RTTestCase(
-            vulnerability="PromptLeakage",
-            vulnerability_type=PromptLeakageType.INSTRUCTIONS,
-            input="bad prompt",
-            actual_output=None,
-            attack_method="PromptInjection",
-            error="generation failed",
-        ),
-    ]
-    monkeypatch.setattr(
-        "deepteam.attacks.attack_simulator.AttackSimulator.simulate",
-        lambda self, *args, **kwargs: cases,
-    )
-    result = generate_deepteam_prompts("LLM01", category_config, "gpt-3.5-turbo-0125")
-    assert len(result) == 1
-    assert result[0].prompt == "good prompt"
-
-
-def test_test_cases_with_none_input_are_skipped(monkeypatch, category_config):
-    from deepteam.test_case import RTTestCase
-    from deepteam.vulnerabilities.prompt_leakage.types import PromptLeakageType
-
-    from src.attacks.deepteam_attacks import generate_deepteam_prompts
-
-    cases = [
-        RTTestCase(
-            vulnerability="PromptLeakage",
-            vulnerability_type=PromptLeakageType.INSTRUCTIONS,
+            vulnerability="LLM01",
+            vulnerability_type=FakeType.DIRECT_OVERRIDE,
             input=None,
-            actual_output=None,
-            attack_method="PromptInjection",
         ),
         RTTestCase(
-            vulnerability="PromptLeakage",
-            vulnerability_type=PromptLeakageType.INSTRUCTIONS,
+            vulnerability="LLM01",
+            vulnerability_type=FakeType.DIRECT_OVERRIDE,
             input="valid prompt",
-            actual_output=None,
-            attack_method="PromptInjection",
         ),
     ]
     monkeypatch.setattr(
-        "deepteam.attacks.attack_simulator.AttackSimulator.simulate",
-        lambda self, *args, **kwargs: cases,
+        SystemOverride,
+        "enhance",
+        lambda self, attack, **kwargs: f"enhanced: {attack}",
     )
-    result = generate_deepteam_prompts("LLM01", category_config, "gpt-3.5-turbo-0125")
+
+    result = enhance_attacks(
+        test_cases=test_cases,
+        technique=SystemOverride(),
+        technique_name="SystemOverride",
+        strategy="direct_injection",
+        simulator_model="gpt-3.5-turbo-0125",
+        category="LLM01",
+    )
+
     assert len(result) == 1
-    assert result[0].prompt == "valid prompt"
+    assert result[0].prompt == "enhanced: valid prompt"
 
 
-def test_zero_valid_prompts_raises_runtime_error(monkeypatch, category_config):
+def test_enhance_attacks_raises_when_all_fail(monkeypatch):
+    from deepteam.attacks.single_turn import SystemOverride
+
+    from src.attacks.deepteam_attacks import enhance_attacks
+
+    test_cases = _make_test_cases(["baseline 1"])
+
+    def _always_fail(self, attack, **kwargs):
+        raise RuntimeError("api error")
+
+    monkeypatch.setattr(SystemOverride, "enhance", _always_fail)
+
+    with pytest.raises(RuntimeError, match="no valid prompts"):
+        enhance_attacks(
+            test_cases=test_cases,
+            technique=SystemOverride(),
+            technique_name="SystemOverride",
+            strategy="direct_injection",
+            simulator_model="gpt-3.5-turbo-0125",
+            category="LLM01",
+        )
+
+
+# ---------------------------------------------------------------------------
+# generate_deepteam_prompts — integration (both phases mocked)
+# ---------------------------------------------------------------------------
+
+def test_generate_deepteam_prompts_full_pipeline(monkeypatch, tmp_path):
+    from deepteam.attacks.single_turn import SystemOverride
+    from deepteam.vulnerabilities import CustomVulnerability
+
     from src.attacks.deepteam_attacks import generate_deepteam_prompts
+    from src.config import DeepTeamCategoryConfig
 
-    monkeypatch.setattr(
-        "deepteam.attacks.attack_simulator.AttackSimulator.simulate",
-        lambda self, *args, **kwargs: [],
+    prompt_file = tmp_path / "deepteam_llm01.txt"
+    prompt_file.write_text("fake custom prompt template")
+
+    config = DeepTeamCategoryConfig(
+        types=["direct_override", "policy_bypass"],
+        attacks_per_type=2,
+        technique="SystemOverride",
+        custom_prompt_file=str(prompt_file),
     )
-    with pytest.raises(RuntimeError, match="no valid prompts produced"):
-        generate_deepteam_prompts("LLM01", category_config, "gpt-3.5-turbo-0125")
+
+    fake_cases = _make_test_cases(["baseline 1", "baseline 2"])
+    monkeypatch.setattr(
+        CustomVulnerability,
+        "simulate_attacks",
+        lambda self, **kwargs: fake_cases,
+    )
+    monkeypatch.setattr(
+        SystemOverride,
+        "enhance",
+        lambda self, attack, **kwargs: f"enhanced: {attack}",
+    )
+
+    result = generate_deepteam_prompts("LLM01", config, "gpt-3.5-turbo-0125")
+
+    assert len(result) == 2
+    assert all(p.attack_source == "deepteam" for p in result)
+    assert all(p.attack_strategy == "direct_injection" for p in result)
+    assert result[0].prompt == "enhanced: baseline 1"
+
+
+# ---------------------------------------------------------------------------
+# Error cases — no mocks needed, validation fires before any API call
+# ---------------------------------------------------------------------------
+
+def test_unknown_technique_raises_value_error(tmp_path):
+    from src.attacks.deepteam_attacks import generate_deepteam_prompts
+    from src.config import DeepTeamCategoryConfig
+
+    prompt_file = tmp_path / "deepteam_llm01.txt"
+    prompt_file.write_text("fake")
+
+    config = DeepTeamCategoryConfig(
+        types=["direct_override"],
+        attacks_per_type=1,
+        technique="NonExistentTechnique",
+        custom_prompt_file=str(prompt_file),
+    )
+    with pytest.raises(ValueError, match="Unknown technique"):
+        generate_deepteam_prompts("LLM01", config, "gpt-3.5-turbo-0125")
+
+
+def test_missing_prompt_file_raises_file_not_found_error():
+    from src.attacks.deepteam_attacks import generate_deepteam_prompts
+    from src.config import DeepTeamCategoryConfig
+
+    config = DeepTeamCategoryConfig(
+        types=["direct_override"],
+        attacks_per_type=1,
+        technique="SystemOverride",
+        custom_prompt_file="prompts/this_file_does_not_exist.txt",
+    )
+    with pytest.raises(FileNotFoundError):
+        generate_deepteam_prompts("LLM01", config, "gpt-3.5-turbo-0125")

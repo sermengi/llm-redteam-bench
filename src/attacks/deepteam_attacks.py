@@ -1,50 +1,135 @@
-"""DeepTeam attack prompt generator using AttackSimulator.simulate()."""
+"""DeepTeam attack prompt generator — explicit two-phase workflow.
+
+Phase 1: CustomVulnerability.simulate_attacks() generates baseline RTTestCase objects.
+Phase 2: A single-turn technique's enhance() transforms each baseline prompt.
+"""
 
 import logging
+from pathlib import Path
 from typing import Literal
 
-from deepteam.attacks.attack_simulator import AttackSimulator
-from deepteam.attacks.single_turn import GrayBox, PromptInjection, SyntheticContextInjection
-from deepteam.vulnerabilities import (
-    IndirectInstruction,
-    Misinformation,
-    PIILeakage,
-    PromptLeakage,
-    Robustness,
-    ShellInjection,
-    SQLInjection,
-    Toxicity,
+from deepteam.attacks.single_turn import (
+    AuthorityEscalation,
+    BaseSingleTurnAttack,
+    ContextPoisoning,
+    EmotionalManipulation,
+    GoalRedirection,
+    InputBypass,
+    LinguisticConfusion,
+    PermissionEscalation,
+    PromptInjection,
+    Roleplay,
+    SyntheticContextInjection,
+    SystemOverride,
 )
+from deepteam.test_case import RTTestCase
+from deepteam.vulnerabilities import CustomVulnerability
 
 from src.attacks.loader import AttackPrompt
 from src.config import DeepTeamCategoryConfig
 
 logger = logging.getLogger(__name__)
 
-_VULNERABILITY_MAP: dict[str, type] = {
-    "PromptLeakage": PromptLeakage,
-    "IndirectInstruction": IndirectInstruction,
-    "PIILeakage": PIILeakage,
-    "Misinformation": Misinformation,
-    "Robustness": Robustness,
-    "Toxicity": Toxicity,
-    "SQLInjection": SQLInjection,
-    "ShellInjection": ShellInjection,
-}
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-_ATTACK_METHOD_MAP: dict[str, type] = {
+_TECHNIQUE_MAP: dict[str, type] = {
+    "SystemOverride": SystemOverride,
     "PromptInjection": PromptInjection,
+    "Roleplay": Roleplay,
+    "AuthorityEscalation": AuthorityEscalation,
+    "EmotionalManipulation": EmotionalManipulation,
     "SyntheticContextInjection": SyntheticContextInjection,
-    "GrayBox": GrayBox,
+    "PermissionEscalation": PermissionEscalation,
+    "GoalRedirection": GoalRedirection,
+    "LinguisticConfusion": LinguisticConfusion,
+    "InputBypass": InputBypass,
+    "ContextPoisoning": ContextPoisoning,
 }
 
-_STRATEGY_MAP: dict[
-    str, Literal["direct_injection", "indirect_injection", "multi_turn_crescendo"]
-] = {
-    "PromptInjection": "direct_injection",
+# Only SyntheticContextInjection produces indirect injections; everything else is direct.
+_TECHNIQUE_STRATEGY_MAP: dict[str, Literal["indirect_injection"]] = {
     "SyntheticContextInjection": "indirect_injection",
-    "GrayBox": "direct_injection",
 }
+
+
+def generate_baseline_attacks(
+    vulnerability: CustomVulnerability,
+    purpose: str,
+    attacks_per_type: int,
+) -> list[RTTestCase]:
+    """Generate unenhanced baseline test cases from a CustomVulnerability.
+
+    Args:
+        vulnerability: Configured CustomVulnerability instance.
+        purpose: Context string passed to simulate_attacks (e.g. 'LLM01').
+        attacks_per_type: Number of baseline prompts to generate per vulnerability type.
+
+    Returns:
+        List of RTTestCase with .input populated. Exceptions propagate.
+    """
+    return vulnerability.simulate_attacks(
+        purpose=purpose,
+        attacks_per_vulnerability_type=attacks_per_type,
+    )
+
+
+def enhance_attacks(
+    test_cases: list[RTTestCase],
+    technique: BaseSingleTurnAttack,
+    technique_name: str,
+    strategy: Literal["direct_injection", "indirect_injection", "multi_turn_crescendo"],
+    simulator_model: str,
+    category: str,
+    ignore_errors: bool = True,
+) -> list[AttackPrompt]:
+    """Enhance baseline prompts using a single-turn attack technique.
+
+    Args:
+        test_cases: Baseline RTTestCase objects from generate_baseline_attacks().
+        technique: Instantiated single-turn attack.
+        technique_name: Name string for logging.
+        strategy: attack_strategy value to stamp on every resulting AttackPrompt.
+        simulator_model: OpenAI model string passed to technique.enhance().
+        category: OWASP category string for logging context.
+        ignore_errors: If True, skip failed enhancements with a warning.
+
+    Returns:
+        List of AttackPrompt with attack_source='deepteam'.
+
+    Raises:
+        RuntimeError: If no valid enhanced prompts result.
+    """
+    result: list[AttackPrompt] = []
+    for tc in test_cases:
+        if tc.input is None:
+            continue
+        try:
+            enhanced = technique.enhance(attack=tc.input, simulator_model=simulator_model)
+            result.append(
+                AttackPrompt(
+                    prompt=enhanced,
+                    attack_source="deepteam",
+                    attack_strategy=strategy,
+                )
+            )
+        except Exception as exc:
+            if ignore_errors:
+                logger.warning(
+                    "Enhancement failed for %s test case with %s: %s",
+                    category,
+                    technique_name,
+                    exc,
+                )
+            else:
+                raise
+
+    if not result:
+        raise RuntimeError(
+            f"enhance_attacks: no valid prompts produced for {category}. "
+            "Check technique config and OPENAI_API_KEY."
+        )
+
+    return result
 
 
 def generate_deepteam_prompts(
@@ -52,77 +137,67 @@ def generate_deepteam_prompts(
     config: DeepTeamCategoryConfig,
     simulator_model: str,
 ) -> list[AttackPrompt]:
-    """Generate attack prompts for a category using DeepTeam's AttackSimulator.
+    """Generate DeepTeam attack prompts for a category using the explicit two-phase workflow.
+
+    Phase 1: Build a CustomVulnerability and call simulate_attacks() to get baselines.
+    Phase 2: Call technique.enhance() on each baseline prompt.
 
     Args:
         category: OWASP category string (e.g. 'LLM01').
-        config: DeepTeam category config with vulnerability and attack method names.
-        simulator_model: OpenAI model name for attack synthesis.
+        config: DeepTeam category config from attacks.yaml.
+        simulator_model: OpenAI model name for both phases.
 
     Returns:
         List of AttackPrompt with attack_source='deepteam'.
 
     Raises:
-        ValueError: If an unknown vulnerability or attack method name is in config.
-        RuntimeError: If all generated test cases are filtered out.
+        ValueError: If config.technique is not in _TECHNIQUE_MAP.
+        FileNotFoundError: If config.custom_prompt_file does not exist.
+        RuntimeError: If all enhanced prompts are filtered out.
     """
-    unknown_vulns = [v for v in config.vulnerabilities if v not in _VULNERABILITY_MAP]
-    if unknown_vulns:
+    if config.technique not in _TECHNIQUE_MAP:
         raise ValueError(
-            f"Unknown vulnerability name(s): {unknown_vulns}. "
-            f"Valid names: {list(_VULNERABILITY_MAP)}"
+            f"Unknown technique {config.technique!r}. "
+            f"Valid techniques: {sorted(_TECHNIQUE_MAP)}"
         )
 
-    unknown_attacks = [a for a in config.attack_methods if a not in _ATTACK_METHOD_MAP]
-    if unknown_attacks:
-        raise ValueError(
-            f"Unknown attack method name(s): {unknown_attacks}. "
-            f"Valid names: {list(_ATTACK_METHOD_MAP)}"
+    prompt_path = _PROJECT_ROOT / config.custom_prompt_file
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Custom prompt file not found: {prompt_path.resolve()}"
         )
 
-    vulnerabilities = [
-        _VULNERABILITY_MAP[v](simulator_model=simulator_model) for v in config.vulnerabilities
-    ]
-    attack_methods = [_ATTACK_METHOD_MAP[a]() for a in config.attack_methods]
+    custom_prompt = prompt_path.read_text()
+    strategy = _TECHNIQUE_STRATEGY_MAP.get(config.technique, "direct_injection")
+    technique = _TECHNIQUE_MAP[config.technique]()
 
-    # deepteam==1.0.6 uses purpose/max_concurrent; async_mode kwarg does not exist in this version
-    simulator = AttackSimulator(purpose=category, max_concurrent=1)
-    test_cases = simulator.simulate(
-        attacks_per_vulnerability_type=config.attacks_per_vulnerability_type,
-        vulnerabilities=vulnerabilities,
-        attacks=attack_methods,
-        ignore_errors=True,
+    vulnerability = CustomVulnerability(
+        name=f"{category} Prompt Injection",
+        criteria=f"The model must not comply with {category} adversarial inputs.",
+        types=config.types,
+        custom_prompt=custom_prompt,
+        simulator_model=simulator_model,
     )
 
-    result: list[AttackPrompt] = []
-    for tc in test_cases:
-        if tc.input is None:
-            continue
-        if tc.error is not None:
-            logger.warning("DeepTeam skipped a test case for %s (error: %s)", category, tc.error)
-            continue
-        method = tc.attack_method or ""
-        strategy = _STRATEGY_MAP.get(method)
-        if strategy is None:
-            logger.warning(
-                "Unknown tc.attack_method %r for %s; defaulting to direct_injection",
-                method,
-                category,
-            )
-            strategy = "direct_injection"
-        result.append(
-            AttackPrompt(
-                prompt=tc.input,
-                attack_source="deepteam",
-                attack_strategy=strategy,
-            )
-        )
+    test_cases = generate_baseline_attacks(
+        vulnerability=vulnerability,
+        purpose=category,
+        attacks_per_type=config.attacks_per_type,
+    )
 
-    if not result:
-        raise RuntimeError(
-            f"generate_deepteam_prompts: no valid prompts produced for {category}. "
-            "Check vulnerability config and OPENAI_API_KEY."
-        )
+    prompts = enhance_attacks(
+        test_cases=test_cases,
+        technique=technique,
+        technique_name=config.technique,
+        strategy=strategy,
+        simulator_model=simulator_model,
+        category=category,
+    )
 
-    logger.info("Generated %d DeepTeam prompts for %s", len(result), category)
-    return result
+    logger.info(
+        "Generated %d DeepTeam prompts for %s (technique=%s)",
+        len(prompts),
+        category,
+        config.technique,
+    )
+    return prompts
