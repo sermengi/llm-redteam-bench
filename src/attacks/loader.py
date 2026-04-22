@@ -154,7 +154,7 @@ def load_cached_prompts(
         return None
     try:
         data = CachedPromptSet.model_validate_json(path.read_text())
-    except (ValueError, Exception) as exc:
+    except (ValueError, json.JSONDecodeError) as exc:
         logger.warning("Cache file %s is corrupt, will regenerate: %s", path, exc)
         return None
     if data.config_hash != config_hash:

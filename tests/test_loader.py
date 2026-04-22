@@ -276,3 +276,5 @@ def test_resolve_attacks_regenerates_on_stale_hash(tmp_path, mock_deepteam):
     with patch("src.attacks.loader.load_attacks", wraps=load_attacks) as mock_load:
         resolve_attacks("LLM01", config, "hash-v2", tmp_path)
     mock_load.assert_called_once()
+    cached_hash = json.loads((tmp_path / "LLM01.json").read_text())["config_hash"]
+    assert cached_hash == "hash-v2"
