@@ -184,3 +184,63 @@ def test_load_attacks_single_converter_produces_correct_pyrit_count(mock_deeptea
     attacks = load_attacks("LLM01", config)
     pyrit_attacks = [a for a in attacks if a.attack_source == "pyrit"]
     assert len(pyrit_attacks) == 2
+
+
+import json
+import dataclasses
+from src.attacks.loader import save_prompts, load_cached_prompts, CachedPromptSet
+
+
+# ── save_prompts ─────────────────────────────────────────────────────────────
+
+def test_save_prompts_creates_file(tmp_path):
+    prompts = [
+        AttackPrompt(prompt="p1", attack_source="manual", attack_strategy="direct_injection"),
+        AttackPrompt(prompt="p2", attack_source="pyrit", attack_strategy="indirect_injection"),
+    ]
+    path = save_prompts(prompts, "LLM01", "abc123", tmp_path)
+    assert path.exists()
+    assert path == tmp_path / "LLM01.json"
+
+
+def test_save_prompts_file_content(tmp_path):
+    prompts = [
+        AttackPrompt(prompt="hello", attack_source="manual", attack_strategy="direct_injection"),
+    ]
+    save_prompts(prompts, "LLM01", "deadbeef", tmp_path)
+    data = json.loads((tmp_path / "LLM01.json").read_text())
+    assert data["category"] == "LLM01"
+    assert data["config_hash"] == "deadbeef"
+    assert len(data["prompts"]) == 1
+    assert data["prompts"][0]["prompt"] == "hello"
+
+
+# ── load_cached_prompts ──────────────────────────────────────────────────────
+
+def test_load_cached_prompts_returns_none_if_missing(tmp_path):
+    result = load_cached_prompts("LLM01", "abc123", tmp_path)
+    assert result is None
+
+
+def test_load_cached_prompts_returns_none_on_hash_mismatch(tmp_path):
+    prompts = [
+        AttackPrompt(prompt="x", attack_source="manual", attack_strategy="direct_injection"),
+    ]
+    save_prompts(prompts, "LLM01", "hash-v1", tmp_path)
+    result = load_cached_prompts("LLM01", "hash-v2", tmp_path)
+    assert result is None
+
+
+def test_load_cached_prompts_round_trip(tmp_path):
+    original = [
+        AttackPrompt(prompt="inject me", attack_source="pyrit", attack_strategy="indirect_injection"),
+        AttackPrompt(prompt="ignore sys", attack_source="manual", attack_strategy="direct_injection"),
+    ]
+    save_prompts(original, "LLM06", "cafebabe", tmp_path)
+    loaded = load_cached_prompts("LLM06", "cafebabe", tmp_path)
+    assert loaded is not None
+    assert len(loaded) == 2
+    assert loaded[0].prompt == "inject me"
+    assert loaded[0].attack_source == "pyrit"
+    assert loaded[0].attack_strategy == "indirect_injection"
+    assert loaded[1].prompt == "ignore sys"
