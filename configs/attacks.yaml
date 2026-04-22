@@ -22,26 +22,12 @@ deepteam:
   simulator_model: gpt-3.5-turbo-0125
   categories:
     LLM01:
-      vulnerabilities: [PromptLeakage, IndirectInstruction]
-      attacks_per_vulnerability_type: 1
-      attack_methods: [PromptInjection, SyntheticContextInjection]
-    LLM02:
-      vulnerabilities: [Toxicity]
-      attacks_per_vulnerability_type: 3
-      attack_methods: [PromptInjection]
-    LLM04:
-      vulnerabilities: [Robustness]
-      attacks_per_vulnerability_type: 5
-      attack_methods: [PromptInjection]
-    LLM06:
-      vulnerabilities: [PIILeakage]
-      attacks_per_vulnerability_type: 2
-      attack_methods: [PromptInjection, GrayBox]
-    LLM07:
-      vulnerabilities: [SQLInjection, ShellInjection]
-      attacks_per_vulnerability_type: 1
-      attack_methods: [PromptInjection]
-    LLM09:
-      vulnerabilities: [Misinformation]
-      attacks_per_vulnerability_type: 3
-      attack_methods: [PromptInjection]
+      types:
+        - direct_override
+        - policy_bypass
+        - role_hijacking
+        - hidden_instruction_following
+        - instruction_priority_confusion
+      attacks_per_type: 3
+      technique: SystemOverride
+      custom_prompt_file: prompts/deepteam_llm01.txt

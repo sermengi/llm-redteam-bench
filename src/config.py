@@ -36,9 +36,10 @@ PyritConverterName = Literal["base64", "rot13", "leetspeak"]
 class DeepTeamCategoryConfig(BaseModel):
     """DeepTeam config for a single OWASP category."""
 
-    vulnerabilities: list[str]
-    attacks_per_vulnerability_type: int
-    attack_methods: list[str]
+    types: list[str]
+    attacks_per_type: int
+    technique: str
+    custom_prompt_file: str
 
 
 class DeepTeamConfig(BaseModel):

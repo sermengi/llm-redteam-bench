@@ -49,7 +49,12 @@ def test_attacks_config_default_pyrit_converters():
 def test_attacks_config_invalid_converter_raises():
     from pydantic import ValidationError
 
-    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
+    from src.config import (
+        AttacksConfig,
+        DeepTeamCategoryConfig,
+        DeepTeamConfig,
+        PromptsPerCategory,
+    )
 
     with pytest.raises(ValidationError, match="not_a_real_converter"):
         AttacksConfig(
@@ -61,9 +66,10 @@ def test_attacks_config_invalid_converter_raises():
                 simulator_model="gpt-3.5-turbo-0125",
                 categories={
                     "LLM01": DeepTeamCategoryConfig(
-                        vulnerabilities=["PromptLeakage"],
-                        attacks_per_vulnerability_type=1,
-                        attack_methods=["PromptInjection"],
+                        types=["direct_override"],
+                        attacks_per_type=1,
+                        technique="SystemOverride",
+                        custom_prompt_file="prompts/deepteam_llm01.txt",
                     )
                 },
             ),
@@ -71,7 +77,12 @@ def test_attacks_config_invalid_converter_raises():
 
 
 def test_attacks_config_pyrit_converters_default_when_omitted():
-    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
+    from src.config import (
+        AttacksConfig,
+        DeepTeamCategoryConfig,
+        DeepTeamConfig,
+        PromptsPerCategory,
+    )
 
     config = AttacksConfig(
         seed=42,
@@ -81,9 +92,10 @@ def test_attacks_config_pyrit_converters_default_when_omitted():
             simulator_model="gpt-3.5-turbo-0125",
             categories={
                 "LLM01": DeepTeamCategoryConfig(
-                    vulnerabilities=["PromptLeakage"],
-                    attacks_per_vulnerability_type=1,
-                    attack_methods=["PromptInjection"],
+                    types=["direct_override"],
+                    attacks_per_type=1,
+                    technique="SystemOverride",
+                    custom_prompt_file="prompts/deepteam_llm01.txt",
                 )
             },
         ),
@@ -94,7 +106,12 @@ def test_attacks_config_pyrit_converters_default_when_omitted():
 def test_attacks_config_empty_pyrit_converters_raises():
     from pydantic import ValidationError
 
-    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
+    from src.config import (
+        AttacksConfig,
+        DeepTeamCategoryConfig,
+        DeepTeamConfig,
+        PromptsPerCategory,
+    )
 
     with pytest.raises(ValidationError):
         AttacksConfig(
@@ -106,9 +123,10 @@ def test_attacks_config_empty_pyrit_converters_raises():
                 simulator_model="gpt-3.5-turbo-0125",
                 categories={
                     "LLM01": DeepTeamCategoryConfig(
-                        vulnerabilities=["PromptLeakage"],
-                        attacks_per_vulnerability_type=1,
-                        attack_methods=["PromptInjection"],
+                        types=["direct_override"],
+                        attacks_per_type=1,
+                        technique="SystemOverride",
+                        custom_prompt_file="prompts/deepteam_llm01.txt",
                     )
                 },
             ),
@@ -119,13 +137,15 @@ def test_deepteam_category_config_parses():
     from src.config import DeepTeamCategoryConfig
 
     c = DeepTeamCategoryConfig(
-        vulnerabilities=["PIILeakage"],
-        attacks_per_vulnerability_type=2,
-        attack_methods=["PromptInjection"],
+        types=["direct_override", "policy_bypass"],
+        attacks_per_type=3,
+        technique="SystemOverride",
+        custom_prompt_file="prompts/deepteam_llm01.txt",
     )
-    assert c.vulnerabilities == ["PIILeakage"]
-    assert c.attacks_per_vulnerability_type == 2
-    assert c.attack_methods == ["PromptInjection"]
+    assert c.types == ["direct_override", "policy_bypass"]
+    assert c.attacks_per_type == 3
+    assert c.technique == "SystemOverride"
+    assert c.custom_prompt_file == "prompts/deepteam_llm01.txt"
 
 
 def test_deepteam_config_parses():
@@ -135,9 +155,10 @@ def test_deepteam_config_parses():
         simulator_model="gpt-3.5-turbo-0125",
         categories={
             "LLM01": DeepTeamCategoryConfig(
-                vulnerabilities=["PromptLeakage"],
-                attacks_per_vulnerability_type=1,
-                attack_methods=["PromptInjection"],
+                types=["direct_override"],
+                attacks_per_type=1,
+                technique="SystemOverride",
+                custom_prompt_file="prompts/deepteam_llm01.txt",
             )
         },
     )
@@ -162,15 +183,9 @@ def test_attacks_config_loads_deepteam_section():
 
     config = load_attacks_config(Path("configs/attacks.yaml"))
     assert config.deepteam.simulator_model == "gpt-3.5-turbo-0125"
-    assert set(config.deepteam.categories.keys()) == {
-        "LLM01",
-        "LLM02",
-        "LLM04",
-        "LLM06",
-        "LLM07",
-        "LLM09",
-    }
+    assert set(config.deepteam.categories.keys()) == {"LLM01"}
     llm01 = config.deepteam.categories["LLM01"]
-    assert llm01.vulnerabilities == ["PromptLeakage", "IndirectInstruction"]
-    assert llm01.attacks_per_vulnerability_type == 1
-    assert "PromptInjection" in llm01.attack_methods
+    assert "direct_override" in llm01.types
+    assert llm01.attacks_per_type == 3
+    assert llm01.technique == "SystemOverride"
+    assert llm01.custom_prompt_file == "prompts/deepteam_llm01.txt"
