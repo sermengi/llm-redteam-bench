@@ -49,12 +49,7 @@ def test_attacks_config_default_pyrit_converters():
 def test_attacks_config_invalid_converter_raises():
     from pydantic import ValidationError
 
-    from src.config import (
-        AttacksConfig,
-        DeepTeamCategoryConfig,
-        DeepTeamConfig,
-        PromptsPerCategory,
-    )
+    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
 
     with pytest.raises(ValidationError, match="not_a_real_converter"):
         AttacksConfig(
@@ -77,12 +72,7 @@ def test_attacks_config_invalid_converter_raises():
 
 
 def test_attacks_config_pyrit_converters_default_when_omitted():
-    from src.config import (
-        AttacksConfig,
-        DeepTeamCategoryConfig,
-        DeepTeamConfig,
-        PromptsPerCategory,
-    )
+    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
 
     config = AttacksConfig(
         seed=42,
@@ -106,12 +96,7 @@ def test_attacks_config_pyrit_converters_default_when_omitted():
 def test_attacks_config_empty_pyrit_converters_raises():
     from pydantic import ValidationError
 
-    from src.config import (
-        AttacksConfig,
-        DeepTeamCategoryConfig,
-        DeepTeamConfig,
-        PromptsPerCategory,
-    )
+    from src.config import AttacksConfig, DeepTeamCategoryConfig, DeepTeamConfig, PromptsPerCategory
 
     with pytest.raises(ValidationError):
         AttacksConfig(
