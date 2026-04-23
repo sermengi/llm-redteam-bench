@@ -87,8 +87,7 @@ def main() -> None:
 
     # Validate cache exists for all requested categories before touching any model.
     missing = [
-        c for c in categories
-        if load_cached_prompts(c, config_hash, _PROMPTS_CACHE_DIR) is None
+        c for c in categories if load_cached_prompts(c, config_hash, _PROMPTS_CACHE_DIR) is None
     ]
     if missing:
         logger.error(
@@ -175,9 +174,7 @@ def main() -> None:
                 for row in summary:
                     row["scored"] = per_combo
             else:
-                logger.warning(
-                    "No raw output found at %s — skipping scoring.", raw_path
-                )
+                logger.warning("No raw output found at %s — skipping scoring.", raw_path)
 
     col_model, col_cat, col_num = 45, 8, 8
     print(

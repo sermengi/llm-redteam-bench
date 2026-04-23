@@ -163,9 +163,7 @@ def generate_deepteam_prompts(
 
     prompt_path = _PROJECT_ROOT / config.custom_prompt_file
     if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Custom prompt file not found: {prompt_path.resolve()}"
-        )
+        raise FileNotFoundError(f"Custom prompt file not found: {prompt_path.resolve()}")
 
     custom_prompt = prompt_path.read_text()
     strategy = _TECHNIQUE_STRATEGY_MAP.get(config.technique, "direct_injection")

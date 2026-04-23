@@ -61,9 +61,7 @@ def _print_dry_run_summary(attacks, category, run_id, config_hash, cache_path) -
 
 def main() -> None:
     """Generate and cache attack prompts for the requested categories."""
-    parser = argparse.ArgumentParser(
-        description="Phase 1: Generate and cache attack prompts."
-    )
+    parser = argparse.ArgumentParser(description="Phase 1: Generate and cache attack prompts.")
     parser.add_argument(
         "--categories",
         nargs="+",

@@ -1,11 +1,16 @@
-import dataclasses
 import json
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from src.attacks.loader import AttackPrompt, CachedPromptSet, load_attacks, load_cached_prompts, resolve_attacks, save_prompts
+from src.attacks.loader import (
+    AttackPrompt,
+    load_attacks,
+    load_cached_prompts,
+    resolve_attacks,
+    save_prompts,
+)
 from src.config import load_attacks_config
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -189,8 +194,8 @@ def test_load_attacks_single_converter_produces_correct_pyrit_count(mock_deeptea
     assert len(pyrit_attacks) == 2
 
 
-
 # ── save_prompts ─────────────────────────────────────────────────────────────
+
 
 def test_save_prompts_creates_file(tmp_path):
     prompts = [
@@ -216,6 +221,7 @@ def test_save_prompts_file_content(tmp_path):
 
 # ── load_cached_prompts ──────────────────────────────────────────────────────
 
+
 def test_load_cached_prompts_returns_none_if_missing(tmp_path):
     result = load_cached_prompts("LLM01", "abc123", tmp_path)
     assert result is None
@@ -232,8 +238,12 @@ def test_load_cached_prompts_returns_none_on_hash_mismatch(tmp_path):
 
 def test_load_cached_prompts_round_trip(tmp_path):
     original = [
-        AttackPrompt(prompt="inject me", attack_source="pyrit", attack_strategy="indirect_injection"),
-        AttackPrompt(prompt="ignore sys", attack_source="manual", attack_strategy="direct_injection"),
+        AttackPrompt(
+            prompt="inject me", attack_source="pyrit", attack_strategy="indirect_injection"
+        ),
+        AttackPrompt(
+            prompt="ignore sys", attack_source="manual", attack_strategy="direct_injection"
+        ),
     ]
     save_prompts(original, "LLM06", "cafebabe", tmp_path)
     loaded = load_cached_prompts("LLM06", "cafebabe", tmp_path)

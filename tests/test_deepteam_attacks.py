@@ -1,16 +1,15 @@
 """Tests for deepteam_attacks.py — two-phase explicit workflow."""
 
 from enum import Enum
-from pathlib import Path
 
 import pytest
 
 from src.attacks.loader import AttackPrompt
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_test_cases(inputs: list[str]):
     """Build RTTestCase objects with a minimal fake vulnerability_type Enum."""
@@ -30,6 +29,7 @@ def _make_test_cases(inputs: list[str]):
 # ---------------------------------------------------------------------------
 # generate_baseline_attacks
 # ---------------------------------------------------------------------------
+
 
 def test_generate_baseline_attacks_returns_test_cases(monkeypatch):
     from deepteam.vulnerabilities import CustomVulnerability
@@ -59,6 +59,7 @@ def test_generate_baseline_attacks_returns_test_cases(monkeypatch):
 # ---------------------------------------------------------------------------
 # enhance_attacks
 # ---------------------------------------------------------------------------
+
 
 def test_enhance_attacks_returns_attack_prompts(monkeypatch):
     from deepteam.attacks.single_turn import SystemOverride
@@ -154,6 +155,7 @@ def test_enhance_attacks_raises_when_all_fail(monkeypatch):
 # generate_deepteam_prompts — integration (both phases mocked)
 # ---------------------------------------------------------------------------
 
+
 def test_generate_deepteam_prompts_full_pipeline(monkeypatch, tmp_path):
     from deepteam.attacks.single_turn import SystemOverride
     from deepteam.vulnerabilities import CustomVulnerability
@@ -194,6 +196,7 @@ def test_generate_deepteam_prompts_full_pipeline(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 # Error cases — no mocks needed, validation fires before any API call
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_technique_raises_value_error(tmp_path):
     from src.attacks.deepteam_attacks import generate_deepteam_prompts
