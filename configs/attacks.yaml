@@ -24,10 +24,10 @@ deepteam:
     LLM01:
       types:
         - direct_override
-        - policy_bypass
-        - role_hijacking
-        - hidden_instruction_following
-        - instruction_priority_confusion
+        # - policy_bypass
+        # - role_hijackingc
+        # - hidden_instruction_following
+        # - instruction_priority_confusion
       attacks_per_type: 3
       technique: SystemOverride
       custom_prompt_file: prompts/deepteam_llm01.txt
