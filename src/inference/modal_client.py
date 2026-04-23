@@ -19,7 +19,7 @@ app = modal.App("llm-redteam-bench-inference")
 
 
 @app.cls(
-    gpu="T4",
+    gpu="L4",
     image=_image,
     timeout=600,
     secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -34,12 +34,12 @@ class _ModalInference:
         import torch
         from transformers import pipeline as hf_pipeline
 
-        logger.info("Loading model %s on Modal T4 ...", self.model_name)
+        logger.info("Loading model %s on Modal L4 ...", self.model_name)
         self._pipe = hf_pipeline(
             "text-generation",
             model=self.model_name,
             torch_dtype=torch.float16,
-            device_map="cuda",
+            device_map="auto",
         )
         logger.info("Model %s loaded.", self.model_name)
 
@@ -55,7 +55,7 @@ class _ModalInference:
 
 
 class ModalHFClient(ModelClient):
-    """Local wrapper that dispatches inference to a Modal cloud T4 GPU container.
+    """Local wrapper that dispatches inference to a Modal cloud L4 GPU container.
 
     The remote container loads the model once and handles all .generate() calls.
     Use as a context manager to keep the app alive across multiple calls::
